@@ -117,11 +117,11 @@
 
         <div class="defense-toggle">
             <label class="toggle-label">
-                <input type="checkbox" id="defenseMode" onchange="updateDefenseStatus()">
+                <input type="checkbox" id="defenseMode" checked onchange="updateDefenseStatus()">
                 <span class="toggle-switch"></span>
                 <span class="toggle-text">🛡️ 防御模式</span>
             </label>
-            <span id="defenseStatus" class="defense-status off">关闭 - 漏洞可利用</span>
+            <span id="defenseStatus" class="defense-status on">已开启 - 攻击将被拦截</span>
         </div>
 
         <div class="attack-scenarios">

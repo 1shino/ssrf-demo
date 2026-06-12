@@ -29,7 +29,7 @@ def ssrf_demo():
 def ssrf_fetch():
     """SSRF漏洞API - 支持防御模式演示"""
     url = request.args.get('url', '')
-    defense_mode = request.args.get('defense', 'false').lower() == 'true'
+    defense_mode = request.args.get('defense', 'true').lower() == 'true'
 
     if not url:
         return jsonify({'success': False, 'error': '请提供URL参数'})
