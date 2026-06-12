@@ -60,7 +60,7 @@ def check_password():
         return  # 没设置密码则跳过
 
     # 不需要验证的路径
-    skip_paths = ['/login', '/static/', '/internal/']
+    skip_paths = ['/login', '/static/', '/internal/', '/ssrf/fetch']
     for path in skip_paths:
         if request.path.startswith(path):
             return
