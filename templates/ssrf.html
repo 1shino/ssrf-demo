@@ -1199,7 +1199,7 @@ function setUrl(url) {
 }
 
 // 悬浮窗相关变量
-let overlayCanvas, overlayCtx, overlayAnimId;
+let overlayAnimId = null;
 let overlayRunning = false;
 
 /**
@@ -1209,8 +1209,10 @@ function openOverlay(url) {
     const overlay = document.getElementById('attackOverlay');
     overlay.style.display = 'flex';
 
-    overlayCanvas = document.getElementById('overlayCanvas');
-    overlayCtx = overlayCanvas.getContext('2d');
+    const canvas = document.getElementById('overlayCanvas');
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width;
+    const h = canvas.height;
 
     // 设置目标信息
     const targetNode = getTargetNode(url);
@@ -1218,15 +1220,142 @@ function openOverlay(url) {
     document.getElementById('overlayTitle').textContent = `🎯 ${attackLabel} 攻击演示`;
     document.getElementById('overlayTarget').textContent = url;
     document.getElementById('overlayStatus').textContent = '攻击中...';
+    document.getElementById('overlayStatus').style.color = '#ff9f0a';
 
-    // 启动悬浮窗动画
+    // 节点位置
+    const attacker = { x: 100, y: h / 2 };
+    const server = { x: w / 2, y: h / 2 };
+    const target = { x: w - 100, y: h / 2 };
+
+    // 动画状态
+    let frame = 0;
+    let particle1 = { progress: -1 }; // 攻击者→服务器
+    let particle2 = { progress: -1 }; // 服务器→目标
     overlayRunning = true;
-    animateOverlay(url);
+
+    function draw() {
+        if (!overlayRunning) return;
+        frame++;
+
+        ctx.clearRect(0, 0, w, h);
+
+        // 背景网格
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+        for (let x = 0; x < w; x += 30) {
+            ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+        }
+        for (let y = 0; y < h; y += 30) {
+            ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+        }
+
+        // 连接线
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([8, 4]);
+        ctx.beginPath(); ctx.moveTo(attacker.x + 35, attacker.y); ctx.lineTo(server.x - 40, server.y); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(server.x + 40, server.y); ctx.lineTo(target.x - 35, target.y); ctx.stroke();
+        ctx.setLineDash([]);
+
+        // 箭头
+        drawArrow(ctx, server.x - 40, server.y, '#ff4444');
+        drawArrow(ctx, target.x - 35, target.y, '#00ccff');
+
+        // 绘制节点
+        drawOverlayNode(ctx, attacker, '👤', '攻击者', '#ff4444', 32);
+        drawOverlayNode(ctx, server, '🖥️', 'Web服务器', '#00ccff', 38);
+        drawOverlayNode(ctx, target, targetNode.icon || '🎯', targetNode.label, targetNode.color, 32);
+
+        // 每40帧发射第一个粒子（攻击者→服务器）
+        if (frame % 50 === 0 && particle1.progress < 0) {
+            particle1 = { progress: 0 };
+        }
+
+        // 第一个粒子动画
+        if (particle1.progress >= 0 && particle1.progress < 1) {
+            particle1.progress += 0.025;
+            const cx = attacker.x + 35 + (server.x - 40 - attacker.x - 35) * particle1.progress;
+            const cy = attacker.y + (server.y - attacker.y) * particle1.progress;
+
+            // 拖尾效果
+            for (let t = 0; t < 5; t++) {
+                const tp = Math.max(0, particle1.progress - t * 0.03);
+                const tx = attacker.x + 35 + (server.x - 40 - attacker.x - 35) * tp;
+                const ty = attacker.y + (server.y - attacker.y) * tp;
+                ctx.beginPath();
+                ctx.arc(tx, ty, 4 - t * 0.5, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(255, 68, 68, ${0.8 - t * 0.15})`;
+                ctx.fill();
+            }
+
+            // 主粒子
+            ctx.beginPath();
+            ctx.arc(cx, cy, 8, 0, Math.PI * 2);
+            ctx.fillStyle = '#ff4444';
+            ctx.shadowColor = '#ff4444';
+            ctx.shadowBlur = 20;
+            ctx.fill();
+            ctx.shadowBlur = 0;
+
+            // 标签
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 12px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(attackLabel, cx, cy - 16);
+        }
+
+        // 第一个粒子到达后，发射第二个（服务器→目标）
+        if (particle1.progress >= 1 && particle2.progress < 0) {
+            particle2 = { progress: 0 };
+            particle1.progress = -1; // 重置
+        }
+
+        // 第二个粒子动画
+        if (particle2.progress >= 0 && particle2.progress < 1) {
+            particle2.progress += 0.025;
+            const cx = server.x + 40 + (target.x - 35 - server.x - 40) * particle2.progress;
+            const cy = server.y + (target.y - server.y) * particle2.progress;
+
+            // 拖尾效果
+            for (let t = 0; t < 5; t++) {
+                const tp = Math.max(0, particle2.progress - t * 0.03);
+                const tx = server.x + 40 + (target.x - 35 - server.x - 40) * tp;
+                const ty = server.y + (target.y - server.y) * tp;
+                ctx.beginPath();
+                ctx.arc(tx, ty, 4 - t * 0.5, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(0, 204, 255, ${0.8 - t * 0.15})`;
+                ctx.fill();
+            }
+
+            // 主粒子
+            ctx.beginPath();
+            ctx.arc(cx, cy, 8, 0, Math.PI * 2);
+            ctx.fillStyle = '#00ccff';
+            ctx.shadowColor = '#00ccff';
+            ctx.shadowBlur = 20;
+            ctx.fill();
+            ctx.shadowBlur = 0;
+
+            // 标签
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 12px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('请求', cx, cy - 16);
+        }
+
+        // 循环动画
+        if (particle2.progress >= 1) {
+            particle2.progress = -1;
+        }
+
+        overlayAnimId = requestAnimationFrame(draw);
+    }
+
+    draw();
 
     // 延迟执行真实请求
     setTimeout(() => {
         executeSSRF(url);
-        document.getElementById('overlayStatus').textContent = '✓ 攻击完成';
+        document.getElementById('overlayStatus').textContent = '✓ 攻击完成，查看下方结果';
         document.getElementById('overlayStatus').style.color = '#34c759';
     }, 1500);
 }
@@ -1240,137 +1369,56 @@ function closeOverlay() {
     overlayRunning = false;
     if (overlayAnimId) {
         cancelAnimationFrame(overlayAnimId);
+        overlayAnimId = null;
     }
 }
 
 /**
- * 悬浮窗动画
+ * 绘制箭头
  */
-function animateOverlay(url) {
-    if (!overlayRunning) return;
-
-    const w = overlayCanvas.width;
-    const h = overlayCanvas.height;
-    const ctx = overlayCtx;
-
-    // 节点位置（悬浮窗内）
-    const attacker = { x: 80, y: h / 2 };
-    const server = { x: w / 2, y: h / 2 };
-    const targetNode = getTargetNode(url);
-    const target = { x: w - 80, y: h / 2 };
-
-    let frame = 0;
-    const particles = [];
-
-    function draw() {
-        if (!overlayRunning) return;
-        frame++;
-
-        ctx.clearRect(0, 0, w, h);
-
-        // 背景网格
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
-        ctx.lineWidth = 1;
-        for (let x = 0; x < w; x += 40) {
-            ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
-        }
-        for (let y = 0; y < h; y += 40) {
-            ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
-        }
-
-        // 连接线（虚线）
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-        ctx.setLineDash([5, 5]);
-        ctx.beginPath(); ctx.moveTo(attacker.x, attacker.y); ctx.lineTo(server.x, server.y); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(server.x, server.y); ctx.lineTo(target.x, target.y); ctx.stroke();
-        ctx.setLineDash([]);
-
-        // 绘制节点
-        drawOverlayNode(ctx, attacker, '👤', '攻击者', '#ff4444', 30);
-        drawOverlayNode(ctx, server, '🖥️', 'Web服务器', '#00ccff', 35);
-        drawOverlayNode(ctx, target, targetNode.icon || '🎯', targetNode.label, targetNode.color, 30);
-
-        // 发射粒子
-        if (frame % 30 === 0) {
-            particles.push({
-                x: attacker.x, y: attacker.y,
-                targetX: server.x, targetY: server.y,
-                color: '#ff4444', label: attackLabel, progress: 0, speed: 0.02, phase: 1
-            });
-        }
-
-        // 更新和绘制粒子
-        for (let i = particles.length - 1; i >= 0; i--) {
-            const p = particles[i];
-            p.progress += p.speed;
-
-            if (p.progress >= 1) {
-                if (p.phase === 1) {
-                    // 从服务器发到目标
-                    p.x = server.x; p.y = server.y;
-                    p.targetX = target.x; p.targetY = target.y;
-                    p.color = '#00ccff';
-                    p.progress = 0;
-                    p.phase = 2;
-                } else {
-                    particles.splice(i, 1);
-                    continue;
-                }
-            }
-
-            const cx = p.x + (p.targetX - p.x) * p.progress;
-            const cy = p.y + (p.targetY - p.y) * p.progress;
-
-            // 发光粒子
-            ctx.beginPath();
-            ctx.arc(cx, cy, 6, 0, Math.PI * 2);
-            ctx.fillStyle = p.color;
-            ctx.shadowColor = p.color;
-            ctx.shadowBlur = 15;
-            ctx.fill();
-            ctx.shadowBlur = 0;
-
-            // 标签
-            ctx.fillStyle = '#fff';
-            ctx.font = 'bold 11px Arial';
-            ctx.textAlign = 'center';
-            ctx.fillText(p.label, cx, cy - 14);
-        }
-
-        overlayAnimId = requestAnimationFrame(draw);
-    }
-
-    draw();
+function drawArrow(ctx, x, y, color) {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x - 10, y - 5);
+    ctx.lineTo(x - 10, y + 5);
+    ctx.closePath();
+    ctx.fill();
 }
 
 /**
  * 绘制悬浮窗节点
  */
 function drawOverlayNode(ctx, pos, icon, label, color, radius) {
-    // 光晕
+    // 外圈光晕
+    const gradient = ctx.createRadialGradient(pos.x, pos.y, radius, pos.x, pos.y, radius + 15);
+    gradient.addColorStop(0, color + '40');
+    gradient.addColorStop(1, color + '00');
     ctx.beginPath();
-    ctx.arc(pos.x, pos.y, radius + 5, 0, Math.PI * 2);
-    ctx.fillStyle = color + '20';
+    ctx.arc(pos.x, pos.y, radius + 15, 0, Math.PI * 2);
+    ctx.fillStyle = gradient;
     ctx.fill();
 
-    // 圆圈
+    // 主圆圈
     ctx.beginPath();
     ctx.arc(pos.x, pos.y, radius, 0, Math.PI * 2);
-    ctx.fillStyle = color + '40';
+    ctx.fillStyle = color + '30';
     ctx.fill();
     ctx.strokeStyle = color;
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 2.5;
     ctx.stroke();
 
     // 图标
-    ctx.font = '24px Arial';
+    ctx.font = '28px Arial';
     ctx.textAlign = 'center';
-    ctx.fillText(icon, pos.x, pos.y + 8);
+    ctx.textBaseline = 'middle';
+    ctx.fillText(icon, pos.x, pos.y);
 
     // 标签
-    ctx.font = '12px Arial';
+    ctx.font = 'bold 13px Arial';
     ctx.fillStyle = color;
-    ctx.fillText(label, pos.x, pos.y + radius + 16);
+    ctx.textBaseline = 'top';
+    ctx.fillText(label, pos.x, pos.y + radius + 10);
 }
 
 /**
