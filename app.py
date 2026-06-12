@@ -40,13 +40,52 @@ def ssrf_fetch():
         import urllib.error
         from urllib.parse import urlparse
 
-        # 替换127.0.0.1:PORT为实际端口（适配Railway动态端口）
-        port = os.environ.get('PORT', '8080')
         parsed = urlparse(url)
-        if parsed.hostname in ('127.0.0.1', 'localhost') and parsed.port:
-            url = url.replace(f'{parsed.hostname}:{parsed.port}', f'127.0.0.1:{port}')
 
-        # 设置超时
+        # 检测是否为file://协议
+        if parsed.scheme == 'file':
+            file_path = parsed.path
+            # Windows路径兼容
+            if file_path.startswith('/') and len(file_path) > 2 and file_path[2] == ':':
+                file_path = file_path[1:]
+            try:
+                with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                    content = f.read(5000)
+                return jsonify({
+                    'success': True,
+                    'url': url,
+                    'status': 200,
+                    'content': content
+                })
+            except FileNotFoundError:
+                return jsonify({
+                    'success': False,
+                    'url': url,
+                    'error': f'文件不存在: {file_path}'
+                })
+            except PermissionError:
+                return jsonify({
+                    'success': False,
+                    'url': url,
+                    'error': f'权限不足: {file_path}'
+                })
+
+        # 检测是否为本机请求（SSRF攻击目标）
+        if parsed.hostname in ('127.0.0.1', 'localhost'):
+            path = parsed.path or '/'
+            with app.test_client() as client:
+                resp = client.get(path)
+                content = resp.get_data(as_text=True)
+                if len(content) > 5000:
+                    content = content[:5000] + '\n... (内容已截断)'
+                return jsonify({
+                    'success': True,
+                    'url': url,
+                    'status': resp.status_code,
+                    'content': content
+                })
+
+        # 外部URL请求
         response = urllib.request.urlopen(url, timeout=5)
         content = response.read().decode('utf-8', errors='ignore')
 
