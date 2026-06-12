@@ -101,27 +101,27 @@
         </div>
 
         <div class="attack-scenarios">
-            <h3><svg class="icon-sketch" viewBox="0 0 24 24" width="20" height="20"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" fill="none" stroke="#f5f5f7" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> 项目文件读取</h3>
+            <h3><svg class="icon-sketch" viewBox="0 0 24 24" width="20" height="20"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" fill="none" stroke="#f5f5f7" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> 服务器文件读取</h3>
             <div class="scenario-grid">
-                <div class="scenario-card" onclick="setUrl('file:///D:/attack_test/attack_demo/app.py')">
-                    <h4><svg class="icon-sketch" viewBox="0 0 24 24" width="16" height="16"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><polyline points="14 2 14 8 20 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> 读取app.py</h4>
-                    <p>读取Flask主程序源码</p>
-                    <code>file:///D:/attack_test/attack_demo/app.py</code>
+                <div class="scenario-card" onclick="setUrl('file:///etc/passwd')">
+                    <h4><svg class="icon-sketch" viewBox="0 0 24 24" width="16" height="16"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><polyline points="14 2 14 8 20 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> 读取/etc/passwd</h4>
+                    <p>读取系统用户信息</p>
+                    <code>file:///etc/passwd</code>
                 </div>
-                <div class="scenario-card" onclick="setUrl('file:///D:/attack_test/attack_demo/templates/index.html')">
-                    <h4><svg class="icon-sketch" viewBox="0 0 24 24" width="16" height="16"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><polyline points="14 2 14 8 20 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> 读取首页模板</h4>
-                    <p>读取index.html模板</p>
-                    <code>file:///D:/attack_test/attack_demo/templates/index.html</code>
+                <div class="scenario-card" onclick="setUrl('file:///etc/hostname')">
+                    <h4><svg class="icon-sketch" viewBox="0 0 24 24" width="16" height="16"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><polyline points="14 2 14 8 20 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> 读取主机名</h4>
+                    <p>读取服务器主机名</p>
+                    <code>file:///etc/hostname</code>
                 </div>
-                <div class="scenario-card" onclick="setUrl('file:///D:/attack_test/attack_demo/static/css/style.css')">
-                    <h4><svg class="icon-sketch" viewBox="0 0 24 24" width="16" height="16"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><polyline points="14 2 14 8 20 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> 读取CSS样式</h4>
-                    <p>读取样式表文件</p>
-                    <code>file:///D:/attack_test/attack_demo/static/css/style.css</code>
+                <div class="scenario-card" onclick="setUrl('file:///proc/self/environ')">
+                    <h4><svg class="icon-sketch" viewBox="0 0 24 24" width="16" height="16"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><polyline points="14 2 14 8 20 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> 读取环境变量</h4>
+                    <p>获取服务器环境变量（可能含密钥）</p>
+                    <code>file:///proc/self/environ</code>
                 </div>
-                <div class="scenario-card" onclick="setUrl('file:///D:/attack_test/attack_demo/requirements.txt')">
-                    <h4><svg class="icon-sketch" viewBox="0 0 24 24" width="16" height="16"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><polyline points="14 2 14 8 20 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> 读取依赖文件</h4>
-                    <p>读取requirements.txt</p>
-                    <code>file:///D:/attack_test/attack_demo/requirements.txt</code>
+                <div class="scenario-card" onclick="setUrl('file:///proc/net/tcp')">
+                    <h4><svg class="icon-sketch" viewBox="0 0 24 24" width="16" height="16"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><polyline points="14 2 14 8 20 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> 读取网络连接</h4>
+                    <p>查看服务器网络连接信息</p>
+                    <code>file:///proc/net/tcp</code>
                 </div>
             </div>
         </div>
@@ -129,45 +129,45 @@
         <div class="attack-scenarios">
             <h3><svg class="icon-sketch" viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="12" r="10" fill="none" stroke="#f5f5f7" stroke-width="1.5"/><circle cx="12" cy="12" r="6" fill="none" stroke="#f5f5f7" stroke-width="1.5"/><circle cx="12" cy="12" r="2" fill="#34c759"/></svg> 模拟内网服务攻击</h3>
             <div class="scenario-grid">
-                <div class="scenario-card" onclick="setUrl('http://127.0.0.1:16379')">
+                <div class="scenario-card" onclick="setUrl('http://127.0.0.1:8080/internal/redis')">
                     <h4><svg class="icon-sketch" viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="10" fill="none" stroke="#cf222e" stroke-width="1.5"/><line x1="12" y1="8" x2="12" y2="12" stroke="#cf222e" stroke-width="1.5" stroke-linecap="round"/><line x1="12" y1="16" x2="12.01" y2="16" stroke="#cf222e" stroke-width="2" stroke-linecap="round"/></svg> Redis服务</h4>
                     <p>模拟Redis信息泄露</p>
-                    <code>http://127.0.0.1:16379</code>
+                    <code>http://127.0.0.1:8080/internal/redis</code>
                 </div>
-                <div class="scenario-card" onclick="setUrl('http://127.0.0.1:13306')">
+                <div class="scenario-card" onclick="setUrl('http://127.0.0.1:8080/internal/mysql')">
                     <h4><svg class="icon-sketch" viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="10" fill="none" stroke="#cf222e" stroke-width="1.5"/><line x1="12" y1="8" x2="12" y2="12" stroke="#cf222e" stroke-width="1.5" stroke-linecap="round"/><line x1="12" y1="16" x2="12.01" y2="16" stroke="#cf222e" stroke-width="2" stroke-linecap="round"/></svg> MySQL服务</h4>
                     <p>模拟MySQL信息泄露</p>
-                    <code>http://127.0.0.1:13306</code>
+                    <code>http://127.0.0.1:8080/internal/mysql</code>
                 </div>
-                <div class="scenario-card" onclick="setUrl('http://127.0.0.1:18080')">
+                <div class="scenario-card" onclick="setUrl('http://127.0.0.1:8080/internal/admin')">
                     <h4><svg class="icon-sketch" viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="10" fill="none" stroke="#cf222e" stroke-width="1.5"/><line x1="12" y1="8" x2="12" y2="12" stroke="#cf222e" stroke-width="1.5" stroke-linecap="round"/><line x1="12" y1="16" x2="12.01" y2="16" stroke="#cf222e" stroke-width="2" stroke-linecap="round"/></svg> 内网管理后台</h4>
                     <p>访问内部管理系统</p>
-                    <code>http://127.0.0.1:18080</code>
+                    <code>http://127.0.0.1:8080/internal/admin</code>
                 </div>
-                <div class="scenario-card" onclick="setUrl('http://127.0.0.1:18080/api/users')">
+                <div class="scenario-card" onclick="setUrl('http://127.0.0.1:8080/internal/admin/api/users')">
                     <h4><svg class="icon-sketch" viewBox="0 0 24 24" width="16" height="16"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="7" r="4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> 用户数据泄露</h4>
                     <p>获取用户密码信息</p>
-                    <code>http://127.0.0.1:18080/api/users</code>
+                    <code>http://127.0.0.1:8080/internal/admin/api/users</code>
                 </div>
-                <div class="scenario-card" onclick="setUrl('http://127.0.0.1:18080/api/config')">
+                <div class="scenario-card" onclick="setUrl('http://127.0.0.1:8080/internal/admin/api/config')">
                     <h4><svg class="icon-sketch" viewBox="0 0 24 24" width="16" height="16"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> 配置信息泄露</h4>
                     <p>获取数据库密码/API密钥</p>
-                    <code>http://127.0.0.1:18080/api/config</code>
+                    <code>http://127.0.0.1:8080/internal/admin/api/config</code>
                 </div>
-                <div class="scenario-card" onclick="setUrl('http://127.0.0.1:18080/api/server')">
+                <div class="scenario-card" onclick="setUrl('http://127.0.0.1:8080/internal/admin/api/server')">
                     <h4><svg class="icon-sketch" viewBox="0 0 24 24" width="16" height="16"><rect x="2" y="3" width="20" height="14" rx="2" ry="2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><line x1="8" y1="21" x2="16" y2="21" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><line x1="12" y1="17" x2="12" y2="21" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> 服务器信息</h4>
                     <p>获取服务器配置信息</p>
-                    <code>http://127.0.0.1:18080/api/server</code>
+                    <code>http://127.0.0.1:8080/internal/admin/api/server</code>
                 </div>
-                <div class="scenario-card" onclick="setUrl('http://127.0.0.1:19200')">
+                <div class="scenario-card" onclick="setUrl('http://127.0.0.1:8080/internal/elasticsearch')">
                     <h4><svg class="icon-sketch" viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="10" fill="none" stroke="#cf222e" stroke-width="1.5"/><line x1="12" y1="8" x2="12" y2="12" stroke="#cf222e" stroke-width="1.5" stroke-linecap="round"/><line x1="12" y1="16" x2="12.01" y2="16" stroke="#cf222e" stroke-width="2" stroke-linecap="round"/></svg> Elasticsearch</h4>
                     <p>模拟ES信息泄露</p>
-                    <code>http://127.0.0.1:19200</code>
+                    <code>http://127.0.0.1:8080/internal/elasticsearch</code>
                 </div>
-                <div class="scenario-card" onclick="setUrl('http://127.0.0.1:19200/_cat/indices')">
+                <div class="scenario-card" onclick="setUrl('http://127.0.0.1:8080/internal/elasticsearch/_cat/indices')">
                     <h4><svg class="icon-sketch" viewBox="0 0 24 24" width="16" height="16"><line x1="18" y1="20" x2="18" y2="10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><line x1="12" y1="20" x2="12" y2="4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><line x1="6" y1="20" x2="6" y2="14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> ES索引列表</h4>
                     <p>查看所有数据索引</p>
-                    <code>http://127.0.0.1:19200/_cat/indices</code>
+                    <code>http://127.0.0.1:8080/internal/elasticsearch/_cat/indices</code>
                 </div>
             </div>
         </div>
@@ -182,9 +182,9 @@
             <div class="payload-tips">
                 <p><strong>提示：</strong></p>
                 <ul>
-                    <li><code>http://127.0.0.1:端口</code> - 探测本机服务</li>
-                    <li><code>file:///路径</code> - 读取本地文件</li>
-                    <li><code>http://内网IP:端口</code> - 探测内网服务</li>
+                    <li><code>http://127.0.0.1:8080/internal/redis</code> - 探测本机服务</li>
+                    <li><code>file:///etc/passwd</code> - 读取服务器文件</li>
+                    <li><code>http://192.168.x.x:端口</code> - 探测内网服务</li>
                 </ul>
             </div>
         </div>

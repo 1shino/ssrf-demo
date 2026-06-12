@@ -66,6 +66,137 @@ def ssrf_fetch():
             'error': f'错误: {str(e)}'
         })
 
+# ==================== 模拟内网服务（SSRF攻击目标） ====================
+
+@app.route('/internal/redis')
+def mock_redis():
+    """模拟Redis服务"""
+    return f"""$ redis_version:6.2.6
+$ connected_clients:1
+$ used_memory:1.2M
+$ redis_mode:standalone
+$ os:Linux 64 bit
+$ tcp_port:6379
+$ uptime_in_seconds:3600
+$ keyspace_hits:100
+$ keyspace_misses:10""", 200, {'Content-Type': 'text/plain'}
+
+@app.route('/internal/redis/get/<key>')
+def mock_redis_get(key):
+    """模拟Redis GET命令"""
+    keys = {
+        'user:session': 'abc123xyz',
+        'admin:password': 'super_secret_pass',
+        'config:debug': 'true'
+    }
+    if key in keys:
+        return f"${len(keys[key])}\r\n{keys[key]}", 200, {'Content-Type': 'text/plain'}
+    return "$-1", 200, {'Content-Type': 'text/plain'}
+
+@app.route('/internal/mysql')
+def mock_mysql():
+    """模拟MySQL服务"""
+    return """5.7.34-log
+Protocol version: 10
+Connection: 127.0.0.1 via TCP/IP
+Server characterset: utf8mb4
+Db characterset: utf8mb4
+Client characterset: utf8mb4
+Conn. characterset: utf8mb4""", 200, {'Content-Type': 'text/plain'}
+
+@app.route('/internal/mysql/status')
+def mock_mysql_status():
+    """模拟MySQL状态"""
+    return jsonify({
+        'version': '5.7.34',
+        'uptime': 86400,
+        'connections': 15,
+        'queries': 12345,
+        'databases': ['information_schema', 'mysql', 'test_db', 'users_db']
+    })
+
+@app.route('/internal/admin')
+def mock_admin():
+    """模拟内网管理后台"""
+    return """<!DOCTYPE html>
+<html>
+<head><title>内部管理系统</title></head>
+<body>
+<h1>内部管理系统 - 员工门户</h1>
+<p>欢迎访问内部管理系统</p>
+<ul>
+    <li><a href="/internal/admin/api/users">用户列表</a></li>
+    <li><a href="/internal/admin/api/config">系统配置</a></li>
+    <li><a href="/internal/admin/api/server">服务器信息</a></li>
+</ul>
+<p style="color: red;">注意：此系统仅限内网访问</p>
+</body>
+</html>"""
+
+@app.route('/internal/admin/api/users')
+def mock_admin_users():
+    """获取用户列表（敏感信息泄露）"""
+    return jsonify({
+        'status': 'success',
+        'data': [
+            {'id': 1, 'username': 'admin', 'password': 'admin123', 'email': 'admin@company.com', 'role': 'admin'},
+            {'id': 2, 'username': 'john', 'password': 'john456', 'email': 'john@company.com', 'role': 'user'},
+            {'id': 3, 'username': 'jane', 'password': 'jane789', 'email': 'jane@company.com', 'role': 'user'}
+        ],
+        'message': '注意：密码为明文存储（模拟漏洞）'
+    })
+
+@app.route('/internal/admin/api/config')
+def mock_admin_config():
+    """获取系统配置（敏感信息泄露）"""
+    return jsonify({
+        'status': 'success',
+        'data': {
+            'database_host': '192.168.1.100',
+            'database_password': 'db_password_123',
+            'api_key': 'sk-1234567890abcdef',
+            'secret_token': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9'
+        },
+        'warning': '这些信息不应该对外暴露'
+    })
+
+@app.route('/internal/admin/api/server')
+def mock_admin_server():
+    """获取服务器信息"""
+    return jsonify({
+        'status': 'success',
+        'data': {
+            'internal_ip': '192.168.1.50',
+            'os': 'Ubuntu 20.04',
+            'kernel': '5.4.0-42-generic',
+            'cpu': '4 cores',
+            'memory': '16GB'
+        }
+    })
+
+@app.route('/internal/elasticsearch')
+def mock_es():
+    """模拟Elasticsearch服务"""
+    return jsonify({
+        'name': 'es-node-1',
+        'cluster_name': 'elasticsearch-cluster',
+        'cluster_uuid': 'abc123-def456',
+        'version': {
+            'number': '7.10.0',
+            'build_type': 'zip',
+            'lucene_version': '8.7.0'
+        },
+        'tagline': 'You Know, for Search'
+    })
+
+@app.route('/internal/elasticsearch/_cat/indices')
+def mock_es_indices():
+    """模拟Elasticsearch索引列表"""
+    return """health status index                uuid                   pri rep docs.count docs.deleted store.size pri.store.size
+green  open   users                abc123                   1   0       1000            0      1.2mb          1.2mb
+green  open   logs-2024.01.01      def456                   1   0      50000           100     45.2mb         45.2mb
+green  open   products             ghi789                   1   0        500            0    256.1kb        256.1kb""", 200, {'Content-Type': 'text/plain'}
+
 # ==================== 防御方法展示 ====================
 
 @app.route('/defense')
