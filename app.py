@@ -13,6 +13,16 @@ import time
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', os.urandom(24).hex())
 
+def json_response(data, status=200):
+    """返回支持中文的JSON响应"""
+    from flask import Response
+    import json
+    return Response(
+        json.dumps(data, ensure_ascii=False),
+        status=status,
+        content_type='application/json; charset=utf-8'
+    )
+
 # 访问密码（在Railway环境变量中设置 ACCESS_PASSWORD）
 ACCESS_PASSWORD = os.environ.get('ACCESS_PASSWORD', '')
 
@@ -136,7 +146,7 @@ def ssrf_fetch():
     defense_mode = request.args.get('defense', 'true').lower() == 'true'
 
     if not url:
-        return jsonify({'success': False, 'error': '请提供URL参数'})
+        return json_response({'success': False, 'error': '请提供URL参数'})
 
     try:
         import urllib.request
@@ -150,7 +160,7 @@ def ssrf_fetch():
             # 1. 协议白名单检查
             allowed_protocols = ['http', 'https']
             if parsed.scheme and parsed.scheme not in allowed_protocols:
-                return jsonify({
+                return json_response({
                     'success': False,
                     'url': url,
                     'error': f'🛡️ 防御拦截: 协议 "{parsed.scheme}" 不在白名单中',
@@ -161,7 +171,7 @@ def ssrf_fetch():
             # 2. 内网地址检查
             internal_hosts = ['127.0.0.1', 'localhost', '0.0.0.0', '[::1]']
             if parsed.hostname in internal_hosts:
-                return jsonify({
+                return json_response({
                     'success': False,
                     'url': url,
                     'error': f'🛡️ 防御拦截: 禁止访问内网地址 {parsed.hostname}',
@@ -178,7 +188,7 @@ def ssrf_fetch():
                         second = int(ip_parts[1])
                         # 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16
                         if first == 10 or (first == 172 and 16 <= second <= 31) or (first == 192 and second == 168):
-                            return jsonify({
+                            return json_response({
                                 'success': False,
                                 'url': url,
                                 'error': f'🛡️ 防御拦截: 禁止访问内网IP段 {parsed.hostname}',
@@ -193,7 +203,7 @@ def ssrf_fetch():
             path_lower = (parsed.path or '').lower()
             for keyword in ssrf_keywords:
                 if keyword in path_lower:
-                    return jsonify({
+                    return json_response({
                         'success': False,
                         'url': url,
                         'error': f'🛡️ 防御拦截: URL包含敏感关键词 "{keyword}"',
@@ -212,20 +222,20 @@ def ssrf_fetch():
             try:
                 with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
                     content = f.read(5000)
-                return jsonify({
+                return json_response({
                     'success': True,
                     'url': url,
                     'status': 200,
                     'content': content
                 })
             except FileNotFoundError:
-                return jsonify({
+                return json_response({
                     'success': False,
                     'url': url,
                     'error': f'文件不存在: {file_path}'
                 })
             except PermissionError:
-                return jsonify({
+                return json_response({
                     'success': False,
                     'url': url,
                     'error': f'权限不足: {file_path}'
@@ -239,7 +249,7 @@ def ssrf_fetch():
                 content = resp.get_data(as_text=True)
                 if len(content) > 5000:
                     content = content[:5000] + '\n... (内容已截断)'
-                return jsonify({
+                return json_response({
                     'success': True,
                     'url': url,
                     'status': resp.status_code,
@@ -254,20 +264,20 @@ def ssrf_fetch():
         if len(content) > 5000:
             content = content[:5000] + '\n... (内容已截断)'
 
-        return jsonify({
+        return json_response({
             'success': True,
             'url': url,
             'status': response.status,
             'content': content
         })
     except urllib.error.URLError as e:
-        return jsonify({
+        return json_response({
             'success': False,
             'url': url,
             'error': f'请求失败: {str(e.reason)}'
         })
     except Exception as e:
-        return jsonify({
+        return json_response({
             'success': False,
             'url': url,
             'error': f'错误: {str(e)}'
@@ -344,7 +354,7 @@ def mock_admin():
 @app.route('/internal/admin/api/users')
 def mock_admin_users():
     """获取用户列表（敏感信息泄露）"""
-    return jsonify({
+    return json_response({
         'status': 'success',
         'data': [
             {'id': 1, 'username': 'admin', 'password': 'admin123', 'email': 'admin@company.com', 'role': 'admin'},
@@ -357,7 +367,7 @@ def mock_admin_users():
 @app.route('/internal/admin/api/config')
 def mock_admin_config():
     """获取系统配置（敏感信息泄露）"""
-    return jsonify({
+    return json_response({
         'status': 'success',
         'data': {
             'database_host': '192.168.1.100',
@@ -371,7 +381,7 @@ def mock_admin_config():
 @app.route('/internal/admin/api/server')
 def mock_admin_server():
     """获取服务器信息"""
-    return jsonify({
+    return json_response({
         'status': 'success',
         'data': {
             'internal_ip': '192.168.1.50',
@@ -385,7 +395,7 @@ def mock_admin_server():
 @app.route('/internal/admin/api/documents')
 def mock_admin_documents():
     """获取内部文档列表"""
-    return jsonify({
+    return json_response({
         'status': 'success',
         'documents': [
             {'id': 1, 'title': '员工手册', 'path': '/docs/handbook.pdf'},
