@@ -38,6 +38,13 @@ def ssrf_fetch():
     try:
         import urllib.request
         import urllib.error
+        from urllib.parse import urlparse
+
+        # 替换127.0.0.1:PORT为实际端口（适配Railway动态端口）
+        port = os.environ.get('PORT', '8080')
+        parsed = urlparse(url)
+        if parsed.hostname in ('127.0.0.1', 'localhost') and parsed.port:
+            url = url.replace(f'{parsed.hostname}:{parsed.port}', f'127.0.0.1:{port}')
 
         # 设置超时
         response = urllib.request.urlopen(url, timeout=5)
