@@ -48,6 +48,21 @@
         <canvas id="ssrfCanvas" width="900" height="500"></canvas>
     </div>
 
+    <!-- 动画悬浮窗 -->
+    <div id="attackOverlay" class="attack-overlay" style="display: none;">
+        <div class="overlay-content">
+            <div class="overlay-header">
+                <h3 id="overlayTitle">🎯 SSRF 攻击演示</h3>
+                <button class="overlay-close" onclick="closeOverlay()">&times;</button>
+            </div>
+            <canvas id="overlayCanvas" width="700" height="350"></canvas>
+            <div class="overlay-info">
+                <span id="overlayTarget" class="overlay-target"></span>
+                <span id="overlayStatus" class="overlay-status">准备中...</span>
+            </div>
+        </div>
+    </div>
+
     <!-- 攻击状态指示 -->
     <div class="attack-status" id="attackStatus">
         <div class="status-indicator">
@@ -640,6 +655,92 @@ http://target.com/fetch?url=dict://127.0.0.1:6379/save
     .reason-card strong {
         color: #ffaa00;
     }
+
+    /* 攻击动画悬浮窗 */
+    .attack-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.85);
+        z-index: 1000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        backdrop-filter: blur(10px);
+        animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    .overlay-content {
+        background: linear-gradient(135deg, #1a1a2e, #16213e);
+        border-radius: 20px;
+        padding: 1.5rem;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        max-width: 90vw;
+    }
+
+    .overlay-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+
+    .overlay-header h3 {
+        color: #f5f5f7;
+        font-size: 1.25rem;
+        margin: 0;
+    }
+
+    .overlay-close {
+        background: rgba(255, 255, 255, 0.1);
+        border: none;
+        color: #fff;
+        font-size: 1.5rem;
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .overlay-close:hover {
+        background: rgba(255, 59, 48, 0.6);
+    }
+
+    #overlayCanvas {
+        border-radius: 12px;
+        background: rgba(0, 0, 0, 0.3);
+    }
+
+    .overlay-info {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 1rem;
+        padding: 0.75rem 1rem;
+        background: rgba(0, 0, 0, 0.3);
+        border-radius: 10px;
+    }
+
+    .overlay-target {
+        color: #00ccff;
+        font-family: "SF Mono", "Fira Code", monospace;
+        font-size: 0.875rem;
+    }
+
+    .overlay-status {
+        color: #34c759;
+        font-size: 0.875rem;
+        font-weight: 600;
+    }
 </style>
 
 <script>
@@ -1093,12 +1194,183 @@ function resetAnimation() {
  */
 function setUrl(url) {
     document.getElementById('targetUrl').value = url;
-    // 滚动到动画区域
-    document.querySelector('.animation-container').scrollIntoView({ behavior: 'smooth', block: 'center' });
-    // 触发攻击动画
-    animateAttack(url);
+    // 打开悬浮窗动画
+    openOverlay(url);
+}
+
+// 悬浮窗相关变量
+let overlayCanvas, overlayCtx, overlayAnimId;
+let overlayRunning = false;
+
+/**
+ * 打开攻击动画悬浮窗
+ */
+function openOverlay(url) {
+    const overlay = document.getElementById('attackOverlay');
+    overlay.style.display = 'flex';
+
+    overlayCanvas = document.getElementById('overlayCanvas');
+    overlayCtx = overlayCanvas.getContext('2d');
+
+    // 设置目标信息
+    const targetNode = getTargetNode(url);
+    const attackLabel = getAttackLabel(url);
+    document.getElementById('overlayTitle').textContent = `🎯 ${attackLabel} 攻击演示`;
+    document.getElementById('overlayTarget').textContent = url;
+    document.getElementById('overlayStatus').textContent = '攻击中...';
+
+    // 启动悬浮窗动画
+    overlayRunning = true;
+    animateOverlay(url);
+
     // 延迟执行真实请求
-    setTimeout(() => executeSSRF(url), 800);
+    setTimeout(() => {
+        executeSSRF(url);
+        document.getElementById('overlayStatus').textContent = '✓ 攻击完成';
+        document.getElementById('overlayStatus').style.color = '#34c759';
+    }, 1500);
+}
+
+/**
+ * 关闭悬浮窗
+ */
+function closeOverlay() {
+    const overlay = document.getElementById('attackOverlay');
+    overlay.style.display = 'none';
+    overlayRunning = false;
+    if (overlayAnimId) {
+        cancelAnimationFrame(overlayAnimId);
+    }
+}
+
+/**
+ * 悬浮窗动画
+ */
+function animateOverlay(url) {
+    if (!overlayRunning) return;
+
+    const w = overlayCanvas.width;
+    const h = overlayCanvas.height;
+    const ctx = overlayCtx;
+
+    // 节点位置（悬浮窗内）
+    const attacker = { x: 80, y: h / 2 };
+    const server = { x: w / 2, y: h / 2 };
+    const targetNode = getTargetNode(url);
+    const target = { x: w - 80, y: h / 2 };
+
+    let frame = 0;
+    const particles = [];
+
+    function draw() {
+        if (!overlayRunning) return;
+        frame++;
+
+        ctx.clearRect(0, 0, w, h);
+
+        // 背景网格
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+        ctx.lineWidth = 1;
+        for (let x = 0; x < w; x += 40) {
+            ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+        }
+        for (let y = 0; y < h; y += 40) {
+            ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+        }
+
+        // 连接线（虚线）
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath(); ctx.moveTo(attacker.x, attacker.y); ctx.lineTo(server.x, server.y); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(server.x, server.y); ctx.lineTo(target.x, target.y); ctx.stroke();
+        ctx.setLineDash([]);
+
+        // 绘制节点
+        drawOverlayNode(ctx, attacker, '👤', '攻击者', '#ff4444', 30);
+        drawOverlayNode(ctx, server, '🖥️', 'Web服务器', '#00ccff', 35);
+        drawOverlayNode(ctx, target, targetNode.icon || '🎯', targetNode.label, targetNode.color, 30);
+
+        // 发射粒子
+        if (frame % 30 === 0) {
+            particles.push({
+                x: attacker.x, y: attacker.y,
+                targetX: server.x, targetY: server.y,
+                color: '#ff4444', label: attackLabel, progress: 0, speed: 0.02, phase: 1
+            });
+        }
+
+        // 更新和绘制粒子
+        for (let i = particles.length - 1; i >= 0; i--) {
+            const p = particles[i];
+            p.progress += p.speed;
+
+            if (p.progress >= 1) {
+                if (p.phase === 1) {
+                    // 从服务器发到目标
+                    p.x = server.x; p.y = server.y;
+                    p.targetX = target.x; p.targetY = target.y;
+                    p.color = '#00ccff';
+                    p.progress = 0;
+                    p.phase = 2;
+                } else {
+                    particles.splice(i, 1);
+                    continue;
+                }
+            }
+
+            const cx = p.x + (p.targetX - p.x) * p.progress;
+            const cy = p.y + (p.targetY - p.y) * p.progress;
+
+            // 发光粒子
+            ctx.beginPath();
+            ctx.arc(cx, cy, 6, 0, Math.PI * 2);
+            ctx.fillStyle = p.color;
+            ctx.shadowColor = p.color;
+            ctx.shadowBlur = 15;
+            ctx.fill();
+            ctx.shadowBlur = 0;
+
+            // 标签
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 11px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(p.label, cx, cy - 14);
+        }
+
+        overlayAnimId = requestAnimationFrame(draw);
+    }
+
+    draw();
+}
+
+/**
+ * 绘制悬浮窗节点
+ */
+function drawOverlayNode(ctx, pos, icon, label, color, radius) {
+    // 光晕
+    ctx.beginPath();
+    ctx.arc(pos.x, pos.y, radius + 5, 0, Math.PI * 2);
+    ctx.fillStyle = color + '20';
+    ctx.fill();
+
+    // 圆圈
+    ctx.beginPath();
+    ctx.arc(pos.x, pos.y, radius, 0, Math.PI * 2);
+    ctx.fillStyle = color + '40';
+    ctx.fill();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // 图标
+    ctx.font = '24px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText(icon, pos.x, pos.y + 8);
+
+    // 标签
+    ctx.font = '12px Arial';
+    ctx.fillStyle = color;
+    ctx.fillText(label, pos.x, pos.y + radius + 16);
 }
 
 /**
