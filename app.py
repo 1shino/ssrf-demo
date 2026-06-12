@@ -7,12 +7,49 @@
 
 from flask import Flask, render_template, request, jsonify, redirect, url_for
 import os
+import hashlib
+import time
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', os.urandom(24).hex())
 
 # 访问密码（在Railway环境变量中设置 ACCESS_PASSWORD）
 ACCESS_PASSWORD = os.environ.get('ACCESS_PASSWORD', '')
+
+# 登录失败次数限制
+login_attempts = {}  # {ip: {'count': 0, 'last_attempt': 0}}
+MAX_ATTEMPTS = 5
+LOCKOUT_TIME = 300  # 5分钟锁定
+
+def get_password_hash(password):
+    """密码哈希"""
+    return hashlib.sha256(password.encode()).hexdigest()[:32]
+
+def is_ip_locked(ip):
+    """检查IP是否被锁定"""
+    if ip not in login_attempts:
+        return False
+    attempt = login_attempts[ip]
+    if attempt['count'] >= MAX_ATTEMPTS:
+        if time.time() - attempt['last_attempt'] < LOCKOUT_TIME:
+            return True
+        else:
+            # 锁定时间已过，重置
+            login_attempts[ip] = {'count': 0, 'last_attempt': 0}
+            return False
+    return False
+
+def record_failed_attempt(ip):
+    """记录失败尝试"""
+    if ip not in login_attempts:
+        login_attempts[ip] = {'count': 0, 'last_attempt': 0}
+    login_attempts[ip]['count'] += 1
+    login_attempts[ip]['last_attempt'] = time.time()
+
+def reset_attempts(ip):
+    """重置尝试次数"""
+    if ip in login_attempts:
+        del login_attempts[ip]
 
 # ==================== 访问密码验证 ====================
 
@@ -28,9 +65,10 @@ def check_password():
         if request.path.startswith(path):
             return
 
-    # 检查cookie中的密码
-    password_cookie = request.cookies.get('access_password')
-    if password_cookie == ACCESS_PASSWORD:
+    # 检查cookie中的密码哈希
+    password_hash = request.cookies.get('access_token')
+    expected_hash = get_password_hash(ACCESS_PASSWORD)
+    if password_hash == expected_hash:
         return
 
     # 未验证则跳转到登录页
@@ -41,13 +79,32 @@ def check_password():
 def login():
     """登录页面"""
     error = ''
+    client_ip = request.remote_addr
+
+    # 检查IP是否被锁定
+    if is_ip_locked(client_ip):
+        remaining = int(LOCKOUT_TIME - (time.time() - login_attempts[client_ip]['last_attempt']))
+        error = f'登录失败次数过多，请 {remaining} 秒后再试'
+        return render_template('login.html', error=error)
+
     if request.method == 'POST':
         password = request.form.get('password', '')
         if password == ACCESS_PASSWORD:
+            # 登录成功，重置尝试次数
+            reset_attempts(client_ip)
             resp = redirect(url_for('index'))
-            resp.set_cookie('access_password', password, max_age=86400)  # 24小时有效
+            # 使用密码哈希作为cookie，不直接存密码
+            resp.set_cookie('access_token', get_password_hash(password),
+                          max_age=86400, httponly=True, samesite='Strict')
             return resp
-        error = '密码错误'
+        else:
+            # 登录失败，记录尝试
+            record_failed_attempt(client_ip)
+            remaining = MAX_ATTEMPTS - login_attempts[client_ip]['count']
+            if remaining > 0:
+                error = f'密码错误，还剩 {remaining} 次机会'
+            else:
+                error = f'密码错误，账号已锁定 {LOCKOUT_TIME // 60} 分钟'
 
     return render_template('login.html', error=error)
 
