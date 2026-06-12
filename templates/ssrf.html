@@ -1093,6 +1093,8 @@ function resetAnimation() {
  */
 function setUrl(url) {
     document.getElementById('targetUrl').value = url;
+    // 滚动到动画区域
+    document.querySelector('.animation-container').scrollIntoView({ behavior: 'smooth', block: 'center' });
     // 触发攻击动画
     animateAttack(url);
     // 延迟执行真实请求
