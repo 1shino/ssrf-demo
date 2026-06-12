@@ -56,6 +56,9 @@ def reset_attempts(ip):
 @app.before_request
 def check_password():
     """检查访问密码"""
+    # 暂时禁用密码验证
+    return
+
     if not ACCESS_PASSWORD:
         return  # 没设置密码则跳过
 
