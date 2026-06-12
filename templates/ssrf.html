@@ -115,6 +115,15 @@
             </div>
         </div>
 
+        <div class="defense-toggle">
+            <label class="toggle-label">
+                <input type="checkbox" id="defenseMode" onchange="updateDefenseStatus()">
+                <span class="toggle-switch"></span>
+                <span class="toggle-text">🛡️ 防御模式</span>
+            </label>
+            <span id="defenseStatus" class="defense-status off">关闭 - 漏洞可利用</span>
+        </div>
+
         <div class="attack-scenarios">
             <h3><svg class="icon-sketch" viewBox="0 0 24 24" width="20" height="20"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" fill="none" stroke="#f5f5f7" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> 服务器文件读取</h3>
             <div class="scenario-grid">
@@ -448,7 +457,19 @@ http://target.com/fetch?url=dict://127.0.0.1:6379/save
     }
 
     .result-warning {
-        border-left: 3px solid #ff9f0a;
+        border-left: 3px solid #34c759;
+    }
+
+    .alert-success {
+        background-color: rgba(52, 199, 89, 0.1);
+        border: 1px solid rgba(52, 199, 89, 0.3);
+        border-radius: 12px;
+        padding: 1.25rem;
+        color: #f5f5f7;
+    }
+
+    .alert-success strong {
+        color: #34c759;
     }
 
     .attack-phase {
@@ -740,6 +761,82 @@ http://target.com/fetch?url=dict://127.0.0.1:6379/save
         color: #34c759;
         font-size: 0.875rem;
         font-weight: 600;
+    }
+
+    /* 防御模式开关 */
+    .defense-toggle {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin: 1.5rem 0;
+        padding: 1rem 1.25rem;
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .toggle-label {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        cursor: pointer;
+        user-select: none;
+    }
+
+    .toggle-label input[type="checkbox"] {
+        display: none;
+    }
+
+    .toggle-switch {
+        position: relative;
+        width: 48px;
+        height: 26px;
+        background: rgba(255, 255, 255, 0.15);
+        border-radius: 13px;
+        transition: all 0.3s;
+    }
+
+    .toggle-switch::after {
+        content: '';
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        width: 20px;
+        height: 20px;
+        background: #fff;
+        border-radius: 50%;
+        transition: all 0.3s;
+    }
+
+    .toggle-label input:checked + .toggle-switch {
+        background: #34c759;
+    }
+
+    .toggle-label input:checked + .toggle-switch::after {
+        left: 25px;
+    }
+
+    .toggle-text {
+        color: #f5f5f7;
+        font-weight: 600;
+        font-size: 0.9375rem;
+    }
+
+    .defense-status {
+        font-size: 0.8125rem;
+        font-weight: 500;
+        padding: 0.25rem 0.75rem;
+        border-radius: 6px;
+    }
+
+    .defense-status.off {
+        color: #ff3b30;
+        background: rgba(255, 59, 48, 0.15);
+    }
+
+    .defense-status.on {
+        color: #34c759;
+        background: rgba(52, 199, 89, 0.15);
     }
 </style>
 
@@ -1265,14 +1362,14 @@ function openOverlay(url) {
         drawOverlayNode(ctx, server, '🖥️', 'Web服务器', '#00ccff', 38);
         drawOverlayNode(ctx, target, targetNode.icon || '🎯', targetNode.label, targetNode.color, 32);
 
-        // 每40帧发射第一个粒子（攻击者→服务器）
-        if (frame % 50 === 0 && particle1.progress < 0) {
+        // 每60帧发射第一个粒子（攻击者→服务器）
+        if (frame % 80 === 0 && particle1.progress < 0) {
             particle1 = { progress: 0 };
         }
 
         // 第一个粒子动画
         if (particle1.progress >= 0 && particle1.progress < 1) {
-            particle1.progress += 0.025;
+            particle1.progress += 0.015;
             const cx = attacker.x + 35 + (server.x - 40 - attacker.x - 35) * particle1.progress;
             const cy = attacker.y + (server.y - attacker.y) * particle1.progress;
 
@@ -1311,7 +1408,7 @@ function openOverlay(url) {
 
         // 第二个粒子动画
         if (particle2.progress >= 0 && particle2.progress < 1) {
-            particle2.progress += 0.025;
+            particle2.progress += 0.015;
             const cx = server.x + 40 + (target.x - 35 - server.x - 40) * particle2.progress;
             const cy = server.y + (target.y - server.y) * particle2.progress;
 
@@ -1422,6 +1519,21 @@ function drawOverlayNode(ctx, pos, icon, label, color, radius) {
 }
 
 /**
+ * 更新防御状态显示
+ */
+function updateDefenseStatus() {
+    const checkbox = document.getElementById('defenseMode');
+    const status = document.getElementById('defenseStatus');
+    if (checkbox.checked) {
+        status.textContent = '已开启 - 攻击将被拦截';
+        status.className = 'defense-status on';
+    } else {
+        status.textContent = '关闭 - 漏洞可利用';
+        status.className = 'defense-status off';
+    }
+}
+
+/**
  * 发送SSRF请求（调用真实API）
  */
 async function sendSSRFRequest() {
@@ -1477,7 +1589,8 @@ async function executeSSRF(url) {
     try {
         // 调用真实的后端API
         const startTime = Date.now();
-        const response = await fetch(`/ssrf/fetch?url=${encodeURIComponent(url)}`);
+        const defenseMode = document.getElementById('defenseMode').checked;
+        const response = await fetch(`/ssrf/fetch?url=${encodeURIComponent(url)}&defense=${defenseMode}`);
         const data = await response.json();
         const endTime = Date.now();
         const responseTime = endTime - startTime;
@@ -1497,6 +1610,26 @@ async function executeSSRF(url) {
             // 显示攻击分析
             attackAnalysis.style.display = 'block';
             analysisContent.innerHTML = analyzeAttack(url, data);
+        } else if (data.defense) {
+            // 被防御拦截
+            resultDiv.className = 'result-box result-warning';
+            resultContent.innerHTML = `<span style="color: #34c759;">🛡️ 攻击已被防御系统拦截!</span>
+
+<span style="color: #00ccff;">拦截规则:</span> ${escapeHtml(data.rule)}
+<span style="color: #00ccff;">错误信息:</span> ${escapeHtml(data.error)}
+<span style="color: #00ccff;">响应时间:</span> ${responseTime}ms
+
+<span style="color: #34c759;">✓ 安全：SSRF攻击未成功</span>`;
+
+            attackAnalysis.style.display = 'block';
+            analysisContent.innerHTML = `<div class="alert alert-success">
+<strong>🛡️ 防御成功！</strong>
+<p>本次攻击被以下安全措施拦截：</p>
+<ul>
+<li><strong>${escapeHtml(data.rule)}</strong> - 有效阻止了恶意请求</li>
+</ul>
+<p>在生产环境中，建议同时启用多种防御措施以提高安全性。</p>
+</div>`;
         } else {
             // 请求失败
             resultDiv.className = 'result-box result-error';

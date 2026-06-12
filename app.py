@@ -27,20 +27,77 @@ def ssrf_demo():
 
 @app.route('/ssrf/fetch')
 def ssrf_fetch():
-    """SSRF漏洞API - 故意不验证URL（演示漏洞）"""
+    """SSRF漏洞API - 支持防御模式演示"""
     url = request.args.get('url', '')
+    defense_mode = request.args.get('defense', 'false').lower() == 'true'
 
     if not url:
         return jsonify({'success': False, 'error': '请提供URL参数'})
 
-    # 故意不做URL验证（演示漏洞）
-    # 真实应用中应该验证URL是否为内网地址
     try:
         import urllib.request
         import urllib.error
         from urllib.parse import urlparse
 
         parsed = urlparse(url)
+
+        # ===== 防御模式：URL安全检查 =====
+        if defense_mode:
+            # 1. 协议白名单检查
+            allowed_protocols = ['http', 'https']
+            if parsed.scheme and parsed.scheme not in allowed_protocols:
+                return jsonify({
+                    'success': False,
+                    'url': url,
+                    'error': f'🛡️ 防御拦截: 协议 "{parsed.scheme}" 不在白名单中',
+                    'defense': True,
+                    'rule': '协议白名单'
+                })
+
+            # 2. 内网地址检查
+            internal_hosts = ['127.0.0.1', 'localhost', '0.0.0.0', '[::1]']
+            if parsed.hostname in internal_hosts:
+                return jsonify({
+                    'success': False,
+                    'url': url,
+                    'error': f'🛡️ 防御拦截: 禁止访问内网地址 {parsed.hostname}',
+                    'defense': True,
+                    'rule': '内网地址过滤'
+                })
+
+            # 3. 内网IP段检查
+            if parsed.hostname:
+                ip_parts = parsed.hostname.split('.')
+                if len(ip_parts) == 4:
+                    try:
+                        first = int(ip_parts[0])
+                        second = int(ip_parts[1])
+                        # 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16
+                        if first == 10 or (first == 172 and 16 <= second <= 31) or (first == 192 and second == 168):
+                            return jsonify({
+                                'success': False,
+                                'url': url,
+                                'error': f'🛡️ 防御拦截: 禁止访问内网IP段 {parsed.hostname}',
+                                'defense': True,
+                                'rule': '内网IP段过滤'
+                            })
+                    except ValueError:
+                        pass
+
+            # 4. SSRF常见关键词检查
+            ssrf_keywords = ['internal', 'admin', 'redis', 'mysql', 'elasticsearch', 'mongo']
+            path_lower = (parsed.path or '').lower()
+            for keyword in ssrf_keywords:
+                if keyword in path_lower:
+                    return jsonify({
+                        'success': False,
+                        'url': url,
+                        'error': f'🛡️ 防御拦截: URL包含敏感关键词 "{keyword}"',
+                        'defense': True,
+                        'rule': '关键词过滤'
+                    })
+
+        # ===== 正常请求处理 =====
 
         # 检测是否为file://协议
         if parsed.scheme == 'file':
