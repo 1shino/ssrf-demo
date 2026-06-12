@@ -335,6 +335,7 @@ def mock_admin():
     <li><a href="/internal/admin/api/users">用户列表</a></li>
     <li><a href="/internal/admin/api/config">系统配置</a></li>
     <li><a href="/internal/admin/api/server">服务器信息</a></li>
+    <li><a href="/internal/admin/api/documents">内部文档</a></li>
 </ul>
 <p style="color: red;">注意：此系统仅限内网访问</p>
 </body>
@@ -379,6 +380,19 @@ def mock_admin_server():
             'cpu': '4 cores',
             'memory': '16GB'
         }
+    })
+
+@app.route('/internal/admin/api/documents')
+def mock_admin_documents():
+    """获取内部文档列表"""
+    return jsonify({
+        'status': 'success',
+        'documents': [
+            {'id': 1, 'title': '员工手册', 'path': '/docs/handbook.pdf'},
+            {'id': 2, 'title': '薪资表', 'path': '/docs/salary_2024.xlsx'},
+            {'id': 3, 'title': '网络拓扑图', 'path': '/docs/network_topology.png'},
+            {'id': 4, 'title': '数据库备份', 'path': '/backup/db_20240101.sql'}
+        ]
     })
 
 @app.route('/internal/elasticsearch')
