@@ -3,16 +3,15 @@
 {% block title %}攻击演示系统{% endblock %}
 
 {% block content %}
-<div class="card" style="text-align: center; padding: 4rem 2rem;">
-    <h1 style="font-size: 3.5rem; font-weight: 700; letter-spacing: -0.04em; margin-bottom: 1rem; line-height: 1.1;">
+<div class="card" style="text-align: center; padding: var(--spacing-xxl) var(--spacing-xl);">
+    <h1 style="font-size: 64px; letter-spacing: 4px; margin-bottom: var(--spacing-md); line-height: 1.1;">
         SSRF 攻击演示
     </h1>
-    <p style="font-size: 1.375rem; color: #a1a1a6; max-width: 600px; margin: 0 auto 2rem; line-height: 1.5;">
+    <p style="font-size: 16px; color: var(--color-muted); max-width: 600px; margin: 0 auto var(--spacing-xxl); line-height: 1.5;">
         深入了解服务器端请求伪造攻击原理，掌握防御技术。
     </p>
-    <a href="/ssrf" class="btn btn-primary" style="font-size: 1.125rem; padding: 1rem 2rem;">
+    <a href="/ssrf" class="btn" style="font-size: 14px; padding: 14px 32px;">
         开始演示
-        <svg viewBox="0 0 24 24" width="20" height="20"><path d="M5 12h14M12 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </a>
 </div>
 
@@ -30,7 +29,7 @@
         <p>
             亲自操作，输入不同 URL 观察攻击效果，获取真实响应数据。
         </p>
-        <a href="/ssrf" class="btn btn-outline">立即体验</a>
+        <a href="/ssrf" class="btn">立即体验</a>
     </div>
 
     <div class="attack-card">
@@ -38,32 +37,32 @@
         <p>
             学习 URL 白名单、协议限制、DNS 重绑定防护等防御技术。
         </p>
-        <a href="/defense/ssrf" class="btn btn-outline">查看防御</a>
+        <a href="/defense/ssrf" class="btn">查看防御</a>
     </div>
 </div>
 
-<div class="card" style="margin-top: 2rem;">
+<div class="card" style="margin-top: var(--spacing-section);">
     <h2>学习指南</h2>
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 2rem; margin-top: 1.5rem;">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: var(--spacing-xxl); margin-top: var(--spacing-xl);">
         <div>
-            <h3 style="font-size: 1.125rem; color: #2997ff; margin-bottom: 0.5rem;">01</h3>
-            <h4 style="font-size: 1rem; margin-bottom: 0.5rem;">理解原理</h4>
-            <p style="font-size: 0.9375rem; color: #a1a1a6;">了解 SSRF 攻击的工作机制和危害</p>
+            <h3 style="font-size: 20px; color: var(--color-link); margin-bottom: var(--spacing-xs); letter-spacing: 1px;">01</h3>
+            <h4 style="font-size: 16px; margin-bottom: var(--spacing-xs); color: var(--color-on-dark); font-family: var(--font-display); letter-spacing: 1.5px; text-transform: uppercase;">理解原理</h4>
+            <p style="font-size: 14px; color: var(--color-muted);">了解 SSRF 攻击的工作机制和危害</p>
         </div>
         <div>
-            <h3 style="font-size: 1.125rem; color: #2997ff; margin-bottom: 0.5rem;">02</h3>
-            <h4 style="font-size: 1rem; margin-bottom: 0.5rem;">动手实践</h4>
-            <p style="font-size: 0.9375rem; color: #a1a1a6;">通过交互式演示亲自体验攻击过程</p>
+            <h3 style="font-size: 20px; color: var(--color-link); margin-bottom: var(--spacing-xs); letter-spacing: 1px;">02</h3>
+            <h4 style="font-size: 16px; margin-bottom: var(--spacing-xs); color: var(--color-on-dark); font-family: var(--font-display); letter-spacing: 1.5px; text-transform: uppercase;">动手实践</h4>
+            <p style="font-size: 14px; color: var(--color-muted);">通过交互式演示亲自体验攻击过程</p>
         </div>
         <div>
-            <h3 style="font-size: 1.125rem; color: #2997ff; margin-bottom: 0.5rem;">03</h3>
-            <h4 style="font-size: 1rem; margin-bottom: 0.5rem;">学习防御</h4>
-            <p style="font-size: 0.9375rem; color: #a1a1a6;">掌握专业的安全防护技术</p>
+            <h3 style="font-size: 20px; color: var(--color-link); margin-bottom: var(--spacing-xs); letter-spacing: 1px;">03</h3>
+            <h4 style="font-size: 16px; margin-bottom: var(--spacing-xs); color: var(--color-on-dark); font-family: var(--font-display); letter-spacing: 1.5px; text-transform: uppercase;">学习防御</h4>
+            <p style="font-size: 14px; color: var(--color-muted);">掌握专业的安全防护技术</p>
         </div>
     </div>
 </div>
 
-<div class="alert alert-warning" style="margin-top: 2rem;">
+<div class="alert alert-warning" style="margin-top: var(--spacing-section);">
     <strong>注意：</strong>本系统仅用于学习和教学目的，请勿将学到的攻击技术用于非法用途。
 </div>
 {% endblock %}

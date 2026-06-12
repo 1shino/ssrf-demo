@@ -1,5 +1,51 @@
-/* 攻击演示系统 - Apple风格 */
+/* 攻击演示系统 - Bugatti 极简奢华风格 */
 
+/* ===== 字体导入 ===== */
+@import url('https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@300;400;500&family=EB+Garamond:wght@400;500&family=JetBrains+Mono:wght@300;400;500&display=swap');
+
+/* ===== 设计令牌 ===== */
+:root {
+    /* 颜色 */
+    --color-primary: #ffffff;
+    --color-ink: #ffffff;
+    --color-body: #cccccc;
+    --color-body-strong: #e6e6e6;
+    --color-muted: #999999;
+    --color-muted-soft: #666666;
+    --color-hairline: #262626;
+    --color-hairline-strong: #3a3a3a;
+    --color-canvas: #000000;
+    --color-surface-soft: #0d0d0d;
+    --color-surface-card: #141414;
+    --color-surface-elevated: #1f1f1f;
+    --color-on-primary: #000000;
+    --color-on-dark: #ffffff;
+    --color-link: #c3d9f3;
+    --color-warning: #d4a017;
+    --color-success: #5fa657;
+
+    /* 字体 */
+    --font-display: 'Saira Condensed', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --font-body: 'EB Garamond', Garamond, "Times New Roman", serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, "SF Mono", "Cascadia Mono", monospace;
+
+    /* 间距 */
+    --spacing-xxs: 4px;
+    --spacing-xs: 8px;
+    --spacing-sm: 12px;
+    --spacing-md: 16px;
+    --spacing-lg: 24px;
+    --spacing-xl: 40px;
+    --spacing-xxl: 64px;
+    --spacing-section: 120px;
+
+    /* 圆角 */
+    --rounded-none: 0px;
+    --rounded-pill: 9999px;
+    --rounded-full: 9999px;
+}
+
+/* ===== 基础重置 ===== */
 * {
     margin: 0;
     padding: 0;
@@ -7,32 +53,32 @@
 }
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
-    background-color: #000;
+    font-family: var(--font-body);
+    background-color: var(--color-canvas);
     min-height: 100vh;
-    color: #f5f5f7;
+    color: var(--color-body);
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    font-size: 16px;
+    letter-spacing: 0;
 }
 
-/* 导航栏样式 - Apple风格 */
+/* ===== 导航栏 ===== */
 .navbar {
-    background-color: rgba(29, 29, 31, 0.72);
-    backdrop-filter: saturate(180%) blur(20px);
-    -webkit-backdrop-filter: saturate(180%) blur(20px);
-    padding: 0 2rem;
+    background-color: transparent;
+    padding: 0 var(--spacing-xl);
     position: fixed;
     width: 100%;
     top: 0;
     z-index: 1000;
-    height: 48px;
+    height: 56px;
     display: flex;
     align-items: center;
 }
 
 .nav-container {
-    max-width: 1200px;
+    max-width: 1280px;
     margin: 0 auto;
     display: flex;
     justify-content: space-between;
@@ -41,41 +87,46 @@ body {
 }
 
 .nav-logo {
-    color: #f5f5f7;
+    color: var(--color-on-dark);
     text-decoration: none;
-    font-size: 1.125rem;
-    font-weight: 600;
-    letter-spacing: -0.01em;
+    font-family: var(--font-display);
+    font-size: 14px;
+    font-weight: 400;
+    letter-spacing: 6px;
+    text-transform: uppercase;
     display: flex;
     align-items: center;
     gap: 0.5rem;
 }
 
 .nav-logo:hover {
-    color: #f5f5f7;
+    color: var(--color-on-dark);
     text-decoration: none;
 }
 
 .nav-menu {
     display: flex;
     list-style: none;
-    gap: 2rem;
+    gap: var(--spacing-xl);
 }
 
 .nav-menu a {
-    color: #d2d2d7;
+    color: var(--color-on-dark);
     text-decoration: none;
-    font-size: 0.8125rem;
+    font-family: var(--font-mono);
+    font-size: 12px;
     font-weight: 400;
-    transition: color 0.3s;
-    letter-spacing: -0.01em;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    transition: opacity 0.3s;
 }
 
 .nav-menu a:hover {
-    color: #f5f5f7;
+    opacity: 0.7;
+    color: var(--color-on-dark);
 }
 
-/* 下拉菜单 - Apple风格 */
+/* 下拉菜单 */
 .dropdown {
     position: relative;
 }
@@ -86,15 +137,11 @@ body {
     top: 100%;
     left: 50%;
     transform: translateX(-50%);
-    background-color: rgba(29, 29, 31, 0.95);
-    backdrop-filter: saturate(180%) blur(20px);
-    -webkit-backdrop-filter: saturate(180%) blur(20px);
-    border-radius: 12px;
-    padding: 0.5rem 0;
+    background-color: var(--color-surface-card);
+    padding: var(--spacing-sm) 0;
     min-width: 200px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
     z-index: 100;
-    margin-top: 0.5rem;
+    margin-top: var(--spacing-sm);
 }
 
 .dropdown:hover .dropdown-menu {
@@ -106,394 +153,404 @@ body {
 }
 
 .dropdown-menu a {
-    color: #d2d2d7;
-    padding: 0.625rem 1rem;
-    font-size: 0.8125rem;
-    border-radius: 0;
+    color: var(--color-body);
+    padding: var(--spacing-sm) var(--spacing-md);
+    font-size: 12px;
     display: block;
-    transition: background-color 0.2s;
+    transition: color 0.2s;
 }
 
 .dropdown-menu a:hover {
-    background-color: rgba(255, 255, 255, 0.1);
-    color: #f5f5f7;
+    color: var(--color-on-dark);
 }
 
-/* 主内容区 */
+/* ===== 主内容区 ===== */
 .container {
-    max-width: 1200px;
-    margin: 60px auto 4rem;
-    padding: 0 2rem;
+    max-width: 1280px;
+    margin: 56px auto var(--spacing-xxl);
+    padding: 0 var(--spacing-xl);
 }
 
-/* 卡片样式 - Apple风格 */
+/* ===== 卡片 ===== */
 .card {
-    background-color: rgba(29, 29, 31, 0.8);
-    border-radius: 20px;
-    padding: 2.5rem;
-    margin-bottom: 1.5rem;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background-color: var(--color-surface-card);
+    border-radius: var(--rounded-none);
+    padding: var(--spacing-xxl);
+    margin-bottom: var(--spacing-section);
+    border: 1px solid var(--color-hairline);
+}
+
+.card h1 {
+    color: var(--color-on-dark);
+    margin-bottom: var(--spacing-lg);
+    font-family: var(--font-display);
+    font-size: 48px;
+    font-weight: 400;
+    letter-spacing: 3px;
+    line-height: 1.15;
+    text-transform: uppercase;
 }
 
 .card h2 {
-    color: #f5f5f7;
-    margin-bottom: 1.5rem;
-    font-size: 2rem;
-    font-weight: 600;
-    letter-spacing: -0.02em;
+    color: var(--color-on-dark);
+    margin-bottom: var(--spacing-lg);
+    font-family: var(--font-display);
+    font-size: 32px;
+    font-weight: 400;
+    letter-spacing: 2px;
     line-height: 1.2;
+    text-transform: uppercase;
 }
 
 .card h3 {
-    color: #f5f5f7;
-    margin: 2rem 0 1rem;
-    font-size: 1.375rem;
-    font-weight: 600;
-    letter-spacing: -0.02em;
+    color: var(--color-on-dark);
+    margin: var(--spacing-xl) 0 var(--spacing-md);
+    font-family: var(--font-display);
+    font-size: 20px;
+    font-weight: 400;
+    letter-spacing: 1px;
+    text-transform: uppercase;
 }
 
 .card p {
-    color: #a1a1a6;
+    color: var(--color-body);
     line-height: 1.7;
-    font-size: 1.0625rem;
+    font-size: 16px;
 }
 
-/* 按钮样式 - Apple风格 */
+/* ===== 按钮 ===== */
 .btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 0.5rem;
-    padding: 0.75rem 1.5rem;
-    border: none;
-    border-radius: 980px;
+    gap: var(--spacing-xs);
+    padding: 14px 32px;
+    border: 1px solid var(--color-on-dark);
+    border-radius: var(--rounded-pill);
     cursor: pointer;
-    font-size: 0.9375rem;
+    font-family: var(--font-mono);
+    font-size: 14px;
     font-weight: 400;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
     text-decoration: none;
     transition: all 0.3s;
-    line-height: 1.5;
-    letter-spacing: -0.01em;
+    line-height: 1;
+    height: 44px;
+    background-color: transparent;
+    color: var(--color-on-dark);
+}
+
+.btn:hover {
+    background-color: var(--color-on-dark);
+    color: var(--color-on-primary);
+    text-decoration: none;
 }
 
 .btn-primary {
-    background-color: #0071e3;
-    color: #fff;
-}
-
-.btn-primary:hover {
-    background-color: #0077ed;
-    text-decoration: none;
+    /* Bugatti 风格：透明 + 白色描边 */
 }
 
 .btn-danger {
-    background-color: #ff3b30;
-    color: #fff;
+    border-color: var(--color-warning);
+    color: var(--color-warning);
 }
 
 .btn-danger:hover {
-    background-color: #ff453a;
+    background-color: var(--color-warning);
+    color: var(--color-on-primary);
 }
 
 .btn-warning {
-    background-color: #ff9f0a;
-    color: #000;
+    border-color: var(--color-muted);
+    color: var(--color-muted);
 }
 
 .btn-warning:hover {
-    background-color: #ffb340;
+    background-color: var(--color-muted);
+    color: var(--color-on-primary);
 }
 
 .btn-info {
-    background-color: #5ac8fa;
-    color: #000;
+    border-color: var(--color-link);
+    color: var(--color-link);
 }
 
 .btn-info:hover {
-    background-color: #7dd3fc;
-}
-
-.btn-outline {
-    background-color: transparent;
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    color: #2997ff;
-}
-
-.btn-outline:hover {
-    background-color: rgba(255, 255, 255, 0.1);
-    border-color: rgba(255, 255, 255, 0.5);
+    background-color: var(--color-link);
+    color: var(--color-on-primary);
 }
 
 .btn-sm {
-    padding: 0.5rem 1rem;
-    font-size: 0.8125rem;
+    padding: 10px 24px;
+    font-size: 12px;
+    height: 36px;
 }
 
-/* 表单样式 - Apple风格 */
+/* ===== 表单 ===== */
 .form-group {
-    margin-bottom: 1.25rem;
+    margin-bottom: var(--spacing-lg);
 }
 
 .form-group label {
     display: block;
-    margin-bottom: 0.5rem;
-    color: #a1a1a6;
-    font-size: 0.875rem;
+    margin-bottom: var(--spacing-xs);
+    color: var(--color-muted);
+    font-family: var(--font-mono);
+    font-size: 11px;
     font-weight: 400;
+    letter-spacing: 2px;
+    text-transform: uppercase;
 }
 
 .form-group input,
 .form-group textarea,
 .form-group select {
     width: 100%;
-    padding: 0.75rem 1rem;
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    border-radius: 12px;
-    background-color: rgba(255, 255, 255, 0.05);
-    color: #f5f5f7;
-    font-size: 1rem;
+    padding: 12px 0;
+    border: none;
+    border-bottom: 1px solid var(--color-hairline-strong);
+    border-radius: var(--rounded-none);
+    background-color: transparent;
+    color: var(--color-on-dark);
+    font-family: var(--font-body);
+    font-size: 16px;
     line-height: 1.5;
-    transition: all 0.3s;
+    transition: border-color 0.3s;
     outline: none;
 }
 
 .form-group input:focus,
 .form-group textarea:focus {
-    border-color: #0071e3;
-    background-color: rgba(255, 255, 255, 0.08);
-    box-shadow: 0 0 0 4px rgba(0, 113, 227, 0.3);
+    border-bottom-color: var(--color-on-dark);
 }
 
 .form-group input::placeholder {
-    color: #6e6e73;
+    color: var(--color-muted-soft);
 }
 
-/* 结果展示 - Apple风格 */
+/* ===== 结果展示 ===== */
 .result-box {
-    background-color: rgba(0, 0, 0, 0.3);
-    border-radius: 12px;
-    padding: 1.25rem;
-    margin-top: 1rem;
-    font-family: "SF Mono", "Fira Code", "Fira Mono", "Roboto Mono", "Courier New", monospace;
-    font-size: 0.875rem;
+    background-color: var(--color-surface-soft);
+    border-radius: var(--rounded-none);
+    padding: var(--spacing-lg);
+    margin-top: var(--spacing-md);
+    font-family: var(--font-mono);
+    font-size: 14px;
     white-space: pre-wrap;
     word-wrap: break-word;
     max-height: 400px;
     overflow-y: auto;
     line-height: 1.7;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--color-hairline);
 }
 
 .result-success {
-    border-left: 3px solid #34c759;
+    border-left: 3px solid var(--color-success);
 }
 
 .result-error {
-    border-left: 3px solid #ff3b30;
+    border-left: 3px solid var(--color-warning);
 }
 
 .result-warning {
-    border-left: 3px solid #ff9f0a;
+    border-left: 3px solid var(--color-success);
 }
 
-/* 代码展示 - Apple风格 */
+/* ===== 代码展示 ===== */
 .code-block {
-    background-color: rgba(0, 0, 0, 0.3);
-    border-radius: 12px;
-    padding: 1.25rem;
-    margin: 1rem 0;
+    background-color: var(--color-surface-soft);
+    border-radius: var(--rounded-none);
+    padding: var(--spacing-lg);
+    margin: var(--spacing-md) 0;
     overflow-x: auto;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--color-hairline);
 }
 
 .code-block pre {
     margin: 0;
-    font-family: "SF Mono", "Fira Code", "Fira Mono", "Roboto Mono", "Courier New", monospace;
-    font-size: 0.875rem;
-    color: #f5f5f7;
+    font-family: var(--font-mono);
+    font-size: 14px;
+    color: var(--color-body);
     line-height: 1.7;
 }
 
-/* 表格样式 - Apple风格 */
+/* ===== 表格 ===== */
 table {
     width: 100%;
     border-collapse: collapse;
-    margin: 1rem 0;
-    font-size: 0.9375rem;
+    margin: var(--spacing-md) 0;
+    font-size: 16px;
 }
 
 th, td {
-    padding: 1rem;
+    padding: var(--spacing-md) 0;
     text-align: left;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid var(--color-hairline);
 }
 
 th {
-    color: #a1a1a6;
-    font-weight: 500;
+    color: var(--color-muted);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 400;
+    letter-spacing: 2px;
+    text-transform: uppercase;
 }
 
-tr:hover {
-    background-color: rgba(255, 255, 255, 0.03);
+td {
+    color: var(--color-body);
 }
 
-/* 警告框 - Apple风格 */
+/* ===== 警告框 ===== */
 .alert {
-    padding: 1.25rem;
-    border-radius: 12px;
-    margin-bottom: 1rem;
-    font-size: 0.9375rem;
+    padding: var(--spacing-lg);
+    border-radius: var(--rounded-none);
+    margin-bottom: var(--spacing-md);
+    font-size: 14px;
     border: 1px solid;
 }
 
 .alert-info {
-    background-color: rgba(90, 200, 250, 0.1);
-    border-color: rgba(90, 200, 250, 0.3);
-    color: #5ac8fa;
+    background-color: transparent;
+    border-color: var(--color-hairline);
+    color: var(--color-body);
 }
 
 .alert-danger {
-    background-color: rgba(255, 59, 48, 0.1);
-    border-color: rgba(255, 59, 48, 0.3);
-    color: #ff3b30;
+    background-color: transparent;
+    border-color: var(--color-hairline);
+    color: var(--color-warning);
 }
 
 .alert-success {
-    background-color: rgba(52, 199, 89, 0.1);
-    border-color: rgba(52, 199, 89, 0.3);
-    color: #34c759;
+    background-color: transparent;
+    border-color: var(--color-hairline);
+    color: var(--color-success);
 }
 
 .alert-warning {
-    background-color: rgba(255, 159, 10, 0.1);
-    border-color: rgba(255, 159, 10, 0.3);
-    color: #ff9f0a;
+    background-color: transparent;
+    border-color: var(--color-hairline);
+    color: var(--color-muted);
 }
 
-/* 特效文字 */
-.highlight {
-    color: #2997ff;
-    font-weight: 500;
-}
-
-.danger {
-    color: #ff3b30;
-    font-weight: 500;
-}
-
-.warning {
-    color: #ff9f0a;
-    font-weight: 500;
-}
-
-/* 首页卡片网格 - Apple风格 */
+/* ===== 首页卡片网格 ===== */
 .attack-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 1.5rem;
-    margin-top: 1.5rem;
+    gap: var(--spacing-xl);
+    margin-top: var(--spacing-xl);
 }
 
 .attack-card {
-    background-color: rgba(29, 29, 31, 0.8);
-    border-radius: 20px;
-    padding: 2rem;
+    background-color: var(--color-surface-card);
+    border-radius: var(--rounded-none);
+    padding: var(--spacing-xxl);
     transition: all 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--color-hairline);
 }
 
 .attack-card:hover {
-    transform: scale(1.02);
-    border-color: rgba(255, 255, 255, 0.15);
-    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
+    border-color: var(--color-hairline-strong);
 }
 
 .attack-card h3 {
-    color: #f5f5f7;
-    margin-bottom: 1rem;
-    font-size: 1.5rem;
-    font-weight: 600;
-    letter-spacing: -0.02em;
+    color: var(--color-on-dark);
+    margin-bottom: var(--spacing-md);
+    font-family: var(--font-display);
+    font-size: 24px;
+    font-weight: 400;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
 }
 
 .attack-card p {
-    color: #a1a1a6;
+    color: var(--color-muted);
     line-height: 1.7;
-    margin-bottom: 1.5rem;
-    font-size: 0.9375rem;
+    margin-bottom: var(--spacing-xl);
+    font-size: 14px;
 }
 
 .attack-card .difficulty {
     display: inline-block;
-    padding: 0.25rem 0.75rem;
-    border-radius: 980px;
-    font-size: 0.75rem;
-    font-weight: 500;
-    margin-bottom: 1rem;
-    letter-spacing: 0.02em;
+    padding: var(--spacing-xxs) var(--spacing-sm);
+    border-radius: var(--rounded-pill);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 400;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: var(--spacing-md);
+    border: 1px solid;
 }
 
 .difficulty-easy {
-    background-color: rgba(52, 199, 89, 0.2);
-    color: #34c759;
+    border-color: var(--color-success);
+    color: var(--color-success);
 }
 
 .difficulty-medium {
-    background-color: rgba(255, 159, 10, 0.2);
-    color: #ff9f0a;
+    border-color: var(--color-warning);
+    color: var(--color-warning);
 }
 
 .difficulty-hard {
-    background-color: rgba(255, 59, 48, 0.2);
-    color: #ff3b30;
+    border-color: var(--color-muted);
+    color: var(--color-muted);
 }
 
-/* 标签页 - Apple风格 */
+/* ===== 标签页 ===== */
 .tabs {
     display: flex;
     gap: 0;
-    margin-bottom: 1.5rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    margin-bottom: var(--spacing-xl);
+    border-bottom: 1px solid var(--color-hairline);
     padding-bottom: 0;
 }
 
 .tab {
-    padding: 0.75rem 1.25rem;
+    padding: var(--spacing-md) var(--spacing-lg);
     cursor: pointer;
-    border-bottom: 2px solid transparent;
+    border-bottom: 1px solid transparent;
     transition: all 0.3s;
-    font-size: 0.9375rem;
-    color: #a1a1a6;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--color-muted);
     margin-bottom: -1px;
     font-weight: 400;
+    letter-spacing: 2px;
+    text-transform: uppercase;
 }
 
 .tab.active {
-    color: #f5f5f7;
-    border-bottom-color: #2997ff;
-    font-weight: 500;
+    color: var(--color-on-dark);
+    border-bottom-color: var(--color-on-dark);
 }
 
 .tab:hover {
-    color: #f5f5f7;
+    color: var(--color-on-dark);
 }
 
-/* 页脚 - Apple风格 */
+/* ===== 页脚 ===== */
 .footer {
     text-align: center;
-    padding: 2rem;
-    margin-top: 4rem;
-    color: #6e6e73;
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
-    font-size: 0.8125rem;
+    padding: var(--spacing-xxl);
+    margin-top: var(--spacing-section);
+    color: var(--color-muted-soft);
+    border-top: 1px solid var(--color-hairline);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
 }
 
-/* 响应式设计 */
+/* ===== 响应式设计 ===== */
 @media (max-width: 768px) {
     .nav-container {
         flex-direction: column;
-        gap: 0.5rem;
-        padding: 0.5rem 1rem;
+        gap: var(--spacing-xs);
+        padding: var(--spacing-xs) var(--spacing-md);
     }
 
     .nav-menu {
@@ -503,16 +560,14 @@ tr:hover {
     }
 
     .nav-menu a {
-        padding: 0.75rem 0;
+        padding: var(--spacing-md) 0;
         display: block;
     }
 
     .dropdown-menu {
         position: static;
-        box-shadow: none;
         border: none;
-        border-radius: 0;
-        background-color: rgba(29, 29, 31, 0.95);
+        background-color: var(--color-surface-card);
         margin-top: 0;
     }
 
@@ -521,62 +576,57 @@ tr:hover {
     }
 
     .container {
-        padding: 0 1rem;
+        padding: 0 var(--spacing-md);
     }
 
     .card {
-        padding: 1.5rem;
-        border-radius: 16px;
+        padding: var(--spacing-xl);
+    }
+
+    .card h1 {
+        font-size: 32px;
+        letter-spacing: 2px;
     }
 
     .card h2 {
-        font-size: 1.625rem;
+        font-size: 24px;
+        letter-spacing: 1.5px;
     }
 }
 
-/* Apple风格的图标颜色 */
-.icon-sketch {
-    vertical-align: middle;
-    margin-right: 0.25rem;
-}
-
-svg.icon-sketch {
-    display: inline-block;
-    vertical-align: middle;
-}
-
-/* Apple风格的链接 */
+/* ===== 链接 ===== */
 a {
-    color: #2997ff;
-    text-decoration: none;
-    transition: color 0.3s;
+    color: var(--color-link);
+    text-decoration: underline;
+    transition: opacity 0.3s;
 }
 
 a:hover {
-    color: #5ac8fa;
-    text-decoration: none;
+    opacity: 0.7;
+    text-decoration: underline;
+    color: var(--color-link);
 }
 
-/* Apple风格的代码 */
+/* ===== 代码 ===== */
 code {
-    background-color: rgba(255, 255, 255, 0.06);
-    padding: 0.125rem 0.375rem;
-    border-radius: 6px;
-    font-family: "SF Mono", "Fira Code", "Fira Mono", "Roboto Mono", "Courier New", monospace;
-    font-size: 0.875em;
-    color: #f5f5f7;
+    background-color: var(--color-surface-soft);
+    padding: var(--spacing-xxs) var(--spacing-xs);
+    border-radius: var(--rounded-none);
+    font-family: var(--font-mono);
+    font-size: 14px;
+    color: var(--color-body);
 }
 
-/* Apple风格的按钮禁用状态 */
+/* ===== 按钮禁用状态 ===== */
 button:disabled {
-    opacity: 0.4;
+    opacity: 0.3;
     cursor: not-allowed;
 }
 
-/* Apple风格的表单布局 */
+/* ===== 表单布局 ===== */
 .form-inline {
     display: flex;
-    gap: 0.75rem;
+    gap: var(--spacing-md);
     align-items: flex-end;
 }
 
@@ -585,10 +635,10 @@ button:disabled {
     margin-bottom: 0;
 }
 
-/* Apple风格的滚动条 */
+/* ===== 滚动条 ===== */
 ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -596,24 +646,58 @@ button:disabled {
 }
 
 ::-webkit-scrollbar-thumb {
-    background-color: rgba(255, 255, 255, 0.2);
-    border-radius: 4px;
+    background-color: var(--color-hairline);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background-color: rgba(255, 255, 255, 0.3);
+    background-color: var(--color-hairline-strong);
 }
 
-/* Apple风格的选中文本 */
+/* ===== 选中文本 ===== */
 ::selection {
-    background-color: rgba(41, 151, 255, 0.3);
-    color: #f5f5f7;
+    background-color: rgba(255, 255, 255, 0.15);
+    color: var(--color-on-dark);
 }
 
-/* Apple风格的渐变文字 */
-.gradient-text {
-    background: linear-gradient(90deg, #2997ff, #5ac8fa, #ff3b30);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+/* ===== 图标 ===== */
+.icon-sketch {
+    vertical-align: middle;
+    margin-right: var(--spacing-xxs);
+}
+
+svg.icon-sketch {
+    display: inline-block;
+    vertical-align: middle;
+}
+
+/* ===== 特效文字 ===== */
+.highlight {
+    color: var(--color-link);
+}
+
+.danger {
+    color: var(--color-warning);
+}
+
+.warning {
+    color: var(--color-muted);
+}
+
+/* ===== 链接按钮 ===== */
+.text-link {
+    color: var(--color-link);
+    font-family: var(--font-mono);
+    font-size: 14px;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    text-decoration: none;
+    border-bottom: 1px solid var(--color-link);
+    padding-bottom: 2px;
+    transition: opacity 0.3s;
+}
+
+.text-link:hover {
+    opacity: 0.7;
+    text-decoration: none;
+    color: var(--color-link);
 }
