@@ -56,14 +56,11 @@ def reset_attempts(ip):
 @app.before_request
 def check_password():
     """检查访问密码"""
-    # 暂时禁用密码验证
-    return
-
     if not ACCESS_PASSWORD:
         return  # 没设置密码则跳过
 
     # 不需要验证的路径
-    skip_paths = ['/login', '/static/']
+    skip_paths = ['/login', '/static/', '/internal/']
     for path in skip_paths:
         if request.path.startswith(path):
             return
