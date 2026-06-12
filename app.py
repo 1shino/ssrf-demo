@@ -5,11 +5,58 @@
 只保留SSRF攻击演示
 """
 
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, redirect, url_for
 import os
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', os.urandom(24).hex())
+
+# 访问密码（在Railway环境变量中设置 ACCESS_PASSWORD）
+ACCESS_PASSWORD = os.environ.get('ACCESS_PASSWORD', '')
+
+# ==================== 访问密码验证 ====================
+
+@app.before_request
+def check_password():
+    """检查访问密码"""
+    if not ACCESS_PASSWORD:
+        return  # 没设置密码则跳过
+
+    # 不需要验证的路径
+    skip_paths = ['/login', '/static/']
+    for path in skip_paths:
+        if request.path.startswith(path):
+            return
+
+    # 检查cookie中的密码
+    password_cookie = request.cookies.get('access_password')
+    if password_cookie == ACCESS_PASSWORD:
+        return
+
+    # 未验证则跳转到登录页
+    if request.path != '/login':
+        return redirect(url_for('login'))
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    """登录页面"""
+    error = ''
+    if request.method == 'POST':
+        password = request.form.get('password', '')
+        if password == ACCESS_PASSWORD:
+            resp = redirect(url_for('index'))
+            resp.set_cookie('access_password', password, max_age=86400)  # 24小时有效
+            return resp
+        error = '密码错误'
+
+    return render_template('login.html', error=error)
+
+@app.route('/logout')
+def logout():
+    """退出登录"""
+    resp = redirect(url_for('login'))
+    resp.delete_cookie('access_password')
+    return resp
 
 # ==================== 路由 ====================
 
