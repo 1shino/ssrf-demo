@@ -652,6 +652,7 @@ let servicesFound = 0;
 let filesRead = 0;
 let successfulAttacks = 0;
 let animationFrame = 0;
+let singleAttackMode = false; // 单次攻击动画模式
 
 // Canvas相关
 const canvas = document.getElementById('ssrfCanvas');
@@ -661,13 +662,11 @@ const ctx = canvas.getContext('2d');
 const nodes = {
     attacker: { x: 100, y: 250, label: '攻击者', color: '#ff4444' },
     server: { x: 450, y: 250, label: 'Web服务器', color: '#00ccff' },
-    internal: [
-        { x: 700, y: 100, label: 'Redis (6379)', color: '#ff6600', port: 6379 },
-        { x: 700, y: 200, label: 'MySQL (3306)', color: '#0066cc', port: 3306 },
-        { x: 700, y: 300, label: '内网Web (80)', color: '#00cc66', port: 80 },
-        { x: 700, y: 400, label: 'MongoDB (27017)', color: '#33cc33', port: 27017 }
-    ],
-    fileSystem: { x: 450, y: 450, label: '文件系统', color: '#ffaa00' }
+    redis: { x: 700, y: 80, label: 'Redis', color: '#ff6600', icon: '🔴' },
+    mysql: { x: 700, y: 180, label: 'MySQL', color: '#0066cc', icon: '🐬' },
+    admin: { x: 700, y: 280, label: '管理后台', color: '#00cc66', icon: '🔐' },
+    es: { x: 700, y: 380, label: 'Elasticsearch', color: '#ffaa00', icon: '🔍' },
+    fileSystem: { x: 450, y: 450, label: '文件系统', color: '#ffaa00', icon: '📁' }
 };
 
 /**
@@ -696,13 +695,13 @@ function drawBackground() {
     ctx.strokeStyle = 'rgba(255, 68, 68, 0.3)';
     ctx.lineWidth = 2;
     ctx.setLineDash([10, 5]);
-    ctx.strokeRect(620, 50, 260, 400);
+    ctx.strokeRect(620, 30, 260, 420);
     ctx.setLineDash([]);
 
     ctx.fillStyle = 'rgba(255, 68, 68, 0.8)';
     ctx.font = '14px Arial';
     ctx.textAlign = 'center';
-    ctx.fillText('内网环境 (192.168.x.x)', 750, 30);
+    ctx.fillText('内网环境', 750, 22);
 
     // 文件系统区域
     ctx.strokeStyle = 'rgba(255, 170, 0, 0.3)';
@@ -718,14 +717,14 @@ function drawBackground() {
 /**
  * 绘制节点
  */
-function drawNode(node, radius = 25) {
+function drawNode(node, radius = 25, highlight = false) {
     // 节点圆圈
     ctx.beginPath();
     ctx.arc(node.x, node.y, radius, 0, Math.PI * 2);
-    ctx.fillStyle = node.color + '40';
+    ctx.fillStyle = highlight ? node.color + '80' : node.color + '40';
     ctx.fill();
-    ctx.strokeStyle = node.color;
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = highlight ? '#fff' : node.color;
+    ctx.lineWidth = highlight ? 3 : 2;
     ctx.stroke();
 
     // 节点图标
@@ -736,13 +735,13 @@ function drawNode(node, radius = 25) {
         ctx.fillText('👤', node.x, node.y + 8);
     } else if (node === nodes.server) {
         ctx.fillText('🖥️', node.x, node.y + 8);
-    } else if (node === nodes.fileSystem) {
-        ctx.fillText('📁', node.x, node.y + 8);
+    } else if (node.icon) {
+        ctx.fillText(node.icon, node.x, node.y + 8);
     }
 
     // 节点标签
     ctx.font = '12px Arial';
-    ctx.fillStyle = node.color;
+    ctx.fillStyle = highlight ? '#fff' : node.color;
     ctx.fillText(node.label, node.x, node.y + radius + 15);
 }
 
@@ -774,9 +773,9 @@ function drawRequests() {
         const startX = req.startNode.x;
         const startY = req.startNode.y;
         const endX = req.endNode.x;
-        const endNode = req.endNode;
+        const endY = req.endNode.y;
         const currentX = startX + (endX - startX) * req.progress;
-        const currentY = startY + (endNode.y - startY) * req.progress;
+        const currentY = startY + (endY - startY) * req.progress;
 
         // 绘制请求线
         ctx.beginPath();
@@ -786,11 +785,14 @@ function drawRequests() {
         ctx.lineWidth = 3;
         ctx.stroke();
 
-        // 绘制请求包
+        // 绘制请求包（带发光效果）
         ctx.beginPath();
         ctx.arc(currentX, currentY, 8, 0, Math.PI * 2);
         ctx.fillStyle = req.color;
+        ctx.shadowColor = req.color;
+        ctx.shadowBlur = 10;
         ctx.fill();
+        ctx.shadowBlur = 0;
 
         // 请求标签
         ctx.fillStyle = '#fff';
@@ -813,6 +815,114 @@ function createRequest(type, startNode, endNode, color, label) {
         progress: 0,
         speed: 2 + Math.random() * 2
     };
+}
+
+/**
+ * 获取攻击目标节点
+ */
+function getTargetNode(url) {
+    if (url.includes('redis')) return nodes.redis;
+    if (url.includes('mysql')) return nodes.mysql;
+    if (url.includes('admin') || url.includes('users') || url.includes('config') || url.includes('server')) return nodes.admin;
+    if (url.includes('elasticsearch') || url.includes('_cat')) return nodes.es;
+    if (url.includes('file://')) return nodes.fileSystem;
+    return nodes.redis; // 默认
+}
+
+/**
+ * 获取攻击类型标签
+ */
+function getAttackLabel(url) {
+    if (url.includes('redis')) return 'Redis探测';
+    if (url.includes('mysql')) return 'MySQL探测';
+    if (url.includes('admin/api/users')) return '用户数据';
+    if (url.includes('admin/api/config')) return '配置泄露';
+    if (url.includes('admin/api/server')) return '服务器信息';
+    if (url.includes('admin')) return '管理后台';
+    if (url.includes('elasticsearch/_cat')) return 'ES索引';
+    if (url.includes('elasticsearch')) return 'ES探测';
+    if (url.includes('file://')) return 'file://';
+    return 'SSRF';
+}
+
+/**
+ * 单次攻击动画（点击场景卡片时触发）
+ */
+function animateAttack(url) {
+    // 停止之前的动画
+    if (animationId) {
+        cancelAnimationFrame(animationId);
+    }
+
+    isRunning = true;
+    singleAttackMode = true;
+    attackRequests = [];
+    animationFrame = 0;
+
+    const targetNode = getTargetNode(url);
+    const isFileAttack = url.includes('file://');
+    const attackLabel = getAttackLabel(url);
+
+    // 更新状态显示
+    document.getElementById('statusText').textContent = '攻击进行中';
+    document.getElementById('phaseText').textContent = isFileAttack ? '读取服务器文件' : `访问 ${targetNode.label}`;
+    document.querySelector('.status-dot').className = 'status-dot yellow';
+
+    // 统计更新
+    document.getElementById('statRequests').textContent = parseInt(document.getElementById('statRequests').textContent) + 1;
+
+    // 创建攻击请求动画
+    attackRequests.push(createRequest('attack', nodes.attacker, nodes.server, '#ff4444', attackLabel));
+    setTimeout(() => {
+        attackRequests.push(createRequest('attack', nodes.server, targetNode, isFileAttack ? '#ffaa00' : '#00ccff', isFileAttack ? '读取' : '请求'));
+    }, 300);
+
+    // 动画循环
+    function animateSingle() {
+        if (!isRunning) return;
+
+        animationFrame++;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        drawBackground();
+
+        // 绘制所有节点，高亮目标节点
+        drawNode(nodes.attacker);
+        drawNode(nodes.server);
+        drawNode(nodes.redis, 20, targetNode === nodes.redis);
+        drawNode(nodes.mysql, 20, targetNode === nodes.mysql);
+        drawNode(nodes.admin, 20, targetNode === nodes.admin);
+        drawNode(nodes.es, 20, targetNode === nodes.es);
+        drawNode(nodes.fileSystem, 20, targetNode === nodes.fileSystem);
+
+        drawRequests();
+
+        // 动画持续约60帧后结束
+        if (animationFrame > 60 && attackRequests.length === 0) {
+            isRunning = false;
+
+            // 更新成功统计
+            if (isFileAttack) {
+                filesRead++;
+                document.getElementById('statFiles').textContent = filesRead;
+            } else {
+                successfulAttacks++;
+                document.getElementById('statSuccess').textContent = successfulAttacks;
+            }
+
+            // 恢复状态显示
+            setTimeout(() => {
+                document.getElementById('statusText').textContent = '待开始';
+                document.getElementById('phaseText').textContent = '--';
+                document.querySelector('.status-dot').className = 'status-dot green';
+            }, 1000);
+            return;
+        }
+
+        animationId = requestAnimationFrame(animateSingle);
+    }
+
+    animateSingle();
 }
 
 /**
@@ -843,7 +953,7 @@ function updatePhase() {
 }
 
 /**
- * 主动画循环
+ * 主动画循环（全流程自动演示）
  */
 function animate() {
     if (!isRunning) return;
@@ -856,17 +966,22 @@ function animate() {
     // 绘制背景
     drawBackground();
 
-    // 绘制节点
+    // 绘制所有节点
     drawNode(nodes.attacker);
     drawNode(nodes.server);
-    nodes.internal.forEach(node => drawNode(node, 20));
-    drawNode(nodes.fileSystem, 20);
+    drawNode(nodes.redis, 20, attackPhase === 1);
+    drawNode(nodes.mysql, 20, attackPhase === 1);
+    drawNode(nodes.admin, 20, attackPhase === 3);
+    drawNode(nodes.es, 20, attackPhase === 3);
+    drawNode(nodes.fileSystem, 20, attackPhase === 2);
+
+    const allTargets = [nodes.redis, nodes.mysql, nodes.admin, nodes.es];
 
     // 阶段1: 探测内网服务
     if (attackPhase === 1 && animationFrame % 60 === 0) {
-        const target = nodes.internal[Math.floor(Math.random() * nodes.internal.length)];
+        const target = allTargets[Math.floor(Math.random() * allTargets.length)];
         attackRequests.push(createRequest('probe', nodes.attacker, nodes.server, '#ff4444', 'SSRF'));
-        attackRequests.push(createRequest('probe', nodes.server, target, '#00ccff', '请求'));
+        attackRequests.push(createRequest('probe', nodes.server, target, '#00ccff', target.label));
         document.getElementById('statRequests').textContent = parseInt(document.getElementById('statRequests').textContent) + 1;
     }
 
@@ -879,7 +994,7 @@ function animate() {
 
     // 阶段3: 攻击服务
     if (attackPhase === 3 && animationFrame % 45 === 0) {
-        const target = nodes.internal[Math.floor(Math.random() * nodes.internal.length)];
+        const target = allTargets[Math.floor(Math.random() * allTargets.length)];
         attackRequests.push(createRequest('attack', nodes.attacker, nodes.server, '#ff4444', '攻击'));
         attackRequests.push(createRequest('attack', nodes.server, target, '#ff0000', 'exploit'));
         document.getElementById('statRequests').textContent = parseInt(document.getElementById('statRequests').textContent) + 1;
@@ -902,12 +1017,13 @@ function animate() {
 }
 
 /**
- * 开始攻击演示
+ * 开始攻击演示（全流程自动）
  */
 function startAttack() {
     if (isRunning) return;
 
     isRunning = true;
+    singleAttackMode = false;
     attackPhase = 1;
     animationFrame = 0;
     attackRequests = [];
@@ -965,15 +1081,22 @@ function resetAnimation() {
     drawBackground();
     drawNode(nodes.attacker);
     drawNode(nodes.server);
-    nodes.internal.forEach(node => drawNode(node, 20));
+    drawNode(nodes.redis, 20);
+    drawNode(nodes.mysql, 20);
+    drawNode(nodes.admin, 20);
+    drawNode(nodes.es, 20);
     drawNode(nodes.fileSystem, 20);
 }
 
 /**
- * 设置URL
+ * 设置URL并触发动画
  */
 function setUrl(url) {
     document.getElementById('targetUrl').value = url;
+    // 触发攻击动画
+    animateAttack(url);
+    // 延迟执行真实请求
+    setTimeout(() => executeSSRF(url), 800);
 }
 
 /**
@@ -1161,7 +1284,10 @@ function escapeHtml(text) {
 drawBackground();
 drawNode(nodes.attacker);
 drawNode(nodes.server);
-nodes.internal.forEach(node => drawNode(node, 20));
+drawNode(nodes.redis, 20);
+drawNode(nodes.mysql, 20);
+drawNode(nodes.admin, 20);
+drawNode(nodes.es, 20);
 drawNode(nodes.fileSystem, 20);
 </script>
 {% endblock %}
