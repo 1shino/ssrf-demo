@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block title %}防御方法介绍{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h1>🛡️ 网络攻击防御方法</h1>
+
+    <p>了解攻击原理后，学习如何防御这些攻击是网络安全的重要环节。</p>
+
+    <div class="attack-grid">
+        <!-- SSRF防御 -->
+        <div class="attack-card">
+            <h3>🌐 SSRF防御</h3>
+            <p>服务器端请求伪造的防御方法，包括URL白名单、协议限制、DNS重绑定防护等技术。</p>
+            <a href="/defense/ssrf" class="btn btn-primary">查看详情</a>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>通用安全建议</h2>
+
+    <h3>开发阶段</h3>
+    <ul style="margin-left: 2rem; margin-top: 0.5rem; line-height: 2;">
+        <li>遵循安全编码规范</li>
+        <li>使用安全框架和库</li>
+        <li>进行代码安全审查</li>
+        <li>实施最小权限原则</li>
+    </ul>
+
+    <h3>部署阶段</h3>
+    <ul style="margin-left: 2rem; margin-top: 0.5rem; line-height: 2;">
+        <li>配置Web应用防火墙（WAF）</li>
+        <li>启用HTTPS</li>
+        <li>设置安全HTTP头</li>
+        <li>定期更新系统和依赖</li>
+    </ul>
+
+    <h3>运维阶段</h3>
+    <ul style="margin-left: 2rem; margin-top: 0.5rem; line-height: 2;">
+        <li>监控异常访问</li>
+        <li>定期安全扫描</li>
+        <li>备份重要数据</li>
+        <li>制定应急响应计划</li>
+    </ul>
+</div>
+{% endblock %}

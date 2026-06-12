@@ -1,0 +1,619 @@
+/* 攻击演示系统 - Apple风格 */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    background-color: #000;
+    min-height: 100vh;
+    color: #f5f5f7;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* 导航栏样式 - Apple风格 */
+.navbar {
+    background-color: rgba(29, 29, 31, 0.72);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    padding: 0 2rem;
+    position: fixed;
+    width: 100%;
+    top: 0;
+    z-index: 1000;
+    height: 48px;
+    display: flex;
+    align-items: center;
+}
+
+.nav-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+
+.nav-logo {
+    color: #f5f5f7;
+    text-decoration: none;
+    font-size: 1.125rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.nav-logo:hover {
+    color: #f5f5f7;
+    text-decoration: none;
+}
+
+.nav-menu {
+    display: flex;
+    list-style: none;
+    gap: 2rem;
+}
+
+.nav-menu a {
+    color: #d2d2d7;
+    text-decoration: none;
+    font-size: 0.8125rem;
+    font-weight: 400;
+    transition: color 0.3s;
+    letter-spacing: -0.01em;
+}
+
+.nav-menu a:hover {
+    color: #f5f5f7;
+}
+
+/* 下拉菜单 - Apple风格 */
+.dropdown {
+    position: relative;
+}
+
+.dropdown-menu {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(29, 29, 31, 0.95);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    border-radius: 12px;
+    padding: 0.5rem 0;
+    min-width: 200px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    z-index: 100;
+    margin-top: 0.5rem;
+}
+
+.dropdown:hover .dropdown-menu {
+    display: block;
+}
+
+.dropdown-menu li {
+    padding: 0;
+}
+
+.dropdown-menu a {
+    color: #d2d2d7;
+    padding: 0.625rem 1rem;
+    font-size: 0.8125rem;
+    border-radius: 0;
+    display: block;
+    transition: background-color 0.2s;
+}
+
+.dropdown-menu a:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: #f5f5f7;
+}
+
+/* 主内容区 */
+.container {
+    max-width: 1200px;
+    margin: 60px auto 4rem;
+    padding: 0 2rem;
+}
+
+/* 卡片样式 - Apple风格 */
+.card {
+    background-color: rgba(29, 29, 31, 0.8);
+    border-radius: 20px;
+    padding: 2.5rem;
+    margin-bottom: 1.5rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.card h2 {
+    color: #f5f5f7;
+    margin-bottom: 1.5rem;
+    font-size: 2rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+}
+
+.card h3 {
+    color: #f5f5f7;
+    margin: 2rem 0 1rem;
+    font-size: 1.375rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+}
+
+.card p {
+    color: #a1a1a6;
+    line-height: 1.7;
+    font-size: 1.0625rem;
+}
+
+/* 按钮样式 - Apple风格 */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 980px;
+    cursor: pointer;
+    font-size: 0.9375rem;
+    font-weight: 400;
+    text-decoration: none;
+    transition: all 0.3s;
+    line-height: 1.5;
+    letter-spacing: -0.01em;
+}
+
+.btn-primary {
+    background-color: #0071e3;
+    color: #fff;
+}
+
+.btn-primary:hover {
+    background-color: #0077ed;
+    text-decoration: none;
+}
+
+.btn-danger {
+    background-color: #ff3b30;
+    color: #fff;
+}
+
+.btn-danger:hover {
+    background-color: #ff453a;
+}
+
+.btn-warning {
+    background-color: #ff9f0a;
+    color: #000;
+}
+
+.btn-warning:hover {
+    background-color: #ffb340;
+}
+
+.btn-info {
+    background-color: #5ac8fa;
+    color: #000;
+}
+
+.btn-info:hover {
+    background-color: #7dd3fc;
+}
+
+.btn-outline {
+    background-color: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: #2997ff;
+}
+
+.btn-outline:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
+.btn-sm {
+    padding: 0.5rem 1rem;
+    font-size: 0.8125rem;
+}
+
+/* 表单样式 - Apple风格 */
+.form-group {
+    margin-bottom: 1.25rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: #a1a1a6;
+    font-size: 0.875rem;
+    font-weight: 400;
+}
+
+.form-group input,
+.form-group textarea,
+.form-group select {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 12px;
+    background-color: rgba(255, 255, 255, 0.05);
+    color: #f5f5f7;
+    font-size: 1rem;
+    line-height: 1.5;
+    transition: all 0.3s;
+    outline: none;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+    border-color: #0071e3;
+    background-color: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 0 0 4px rgba(0, 113, 227, 0.3);
+}
+
+.form-group input::placeholder {
+    color: #6e6e73;
+}
+
+/* 结果展示 - Apple风格 */
+.result-box {
+    background-color: rgba(0, 0, 0, 0.3);
+    border-radius: 12px;
+    padding: 1.25rem;
+    margin-top: 1rem;
+    font-family: "SF Mono", "Fira Code", "Fira Mono", "Roboto Mono", "Courier New", monospace;
+    font-size: 0.875rem;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    max-height: 400px;
+    overflow-y: auto;
+    line-height: 1.7;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.result-success {
+    border-left: 3px solid #34c759;
+}
+
+.result-error {
+    border-left: 3px solid #ff3b30;
+}
+
+.result-warning {
+    border-left: 3px solid #ff9f0a;
+}
+
+/* 代码展示 - Apple风格 */
+.code-block {
+    background-color: rgba(0, 0, 0, 0.3);
+    border-radius: 12px;
+    padding: 1.25rem;
+    margin: 1rem 0;
+    overflow-x: auto;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.code-block pre {
+    margin: 0;
+    font-family: "SF Mono", "Fira Code", "Fira Mono", "Roboto Mono", "Courier New", monospace;
+    font-size: 0.875rem;
+    color: #f5f5f7;
+    line-height: 1.7;
+}
+
+/* 表格样式 - Apple风格 */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+    font-size: 0.9375rem;
+}
+
+th, td {
+    padding: 1rem;
+    text-align: left;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+th {
+    color: #a1a1a6;
+    font-weight: 500;
+}
+
+tr:hover {
+    background-color: rgba(255, 255, 255, 0.03);
+}
+
+/* 警告框 - Apple风格 */
+.alert {
+    padding: 1.25rem;
+    border-radius: 12px;
+    margin-bottom: 1rem;
+    font-size: 0.9375rem;
+    border: 1px solid;
+}
+
+.alert-info {
+    background-color: rgba(90, 200, 250, 0.1);
+    border-color: rgba(90, 200, 250, 0.3);
+    color: #5ac8fa;
+}
+
+.alert-danger {
+    background-color: rgba(255, 59, 48, 0.1);
+    border-color: rgba(255, 59, 48, 0.3);
+    color: #ff3b30;
+}
+
+.alert-success {
+    background-color: rgba(52, 199, 89, 0.1);
+    border-color: rgba(52, 199, 89, 0.3);
+    color: #34c759;
+}
+
+.alert-warning {
+    background-color: rgba(255, 159, 10, 0.1);
+    border-color: rgba(255, 159, 10, 0.3);
+    color: #ff9f0a;
+}
+
+/* 特效文字 */
+.highlight {
+    color: #2997ff;
+    font-weight: 500;
+}
+
+.danger {
+    color: #ff3b30;
+    font-weight: 500;
+}
+
+.warning {
+    color: #ff9f0a;
+    font-weight: 500;
+}
+
+/* 首页卡片网格 - Apple风格 */
+.attack-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+}
+
+.attack-card {
+    background-color: rgba(29, 29, 31, 0.8);
+    border-radius: 20px;
+    padding: 2rem;
+    transition: all 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.attack-card:hover {
+    transform: scale(1.02);
+    border-color: rgba(255, 255, 255, 0.15);
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
+}
+
+.attack-card h3 {
+    color: #f5f5f7;
+    margin-bottom: 1rem;
+    font-size: 1.5rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+}
+
+.attack-card p {
+    color: #a1a1a6;
+    line-height: 1.7;
+    margin-bottom: 1.5rem;
+    font-size: 0.9375rem;
+}
+
+.attack-card .difficulty {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 980px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    margin-bottom: 1rem;
+    letter-spacing: 0.02em;
+}
+
+.difficulty-easy {
+    background-color: rgba(52, 199, 89, 0.2);
+    color: #34c759;
+}
+
+.difficulty-medium {
+    background-color: rgba(255, 159, 10, 0.2);
+    color: #ff9f0a;
+}
+
+.difficulty-hard {
+    background-color: rgba(255, 59, 48, 0.2);
+    color: #ff3b30;
+}
+
+/* 标签页 - Apple风格 */
+.tabs {
+    display: flex;
+    gap: 0;
+    margin-bottom: 1.5rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: 0;
+}
+
+.tab {
+    padding: 0.75rem 1.25rem;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.3s;
+    font-size: 0.9375rem;
+    color: #a1a1a6;
+    margin-bottom: -1px;
+    font-weight: 400;
+}
+
+.tab.active {
+    color: #f5f5f7;
+    border-bottom-color: #2997ff;
+    font-weight: 500;
+}
+
+.tab:hover {
+    color: #f5f5f7;
+}
+
+/* 页脚 - Apple风格 */
+.footer {
+    text-align: center;
+    padding: 2rem;
+    margin-top: 4rem;
+    color: #6e6e73;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    font-size: 0.8125rem;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .nav-container {
+        flex-direction: column;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+    }
+
+    .nav-menu {
+        flex-direction: column;
+        gap: 0;
+        width: 100%;
+    }
+
+    .nav-menu a {
+        padding: 0.75rem 0;
+        display: block;
+    }
+
+    .dropdown-menu {
+        position: static;
+        box-shadow: none;
+        border: none;
+        border-radius: 0;
+        background-color: rgba(29, 29, 31, 0.95);
+        margin-top: 0;
+    }
+
+    .attack-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .container {
+        padding: 0 1rem;
+    }
+
+    .card {
+        padding: 1.5rem;
+        border-radius: 16px;
+    }
+
+    .card h2 {
+        font-size: 1.625rem;
+    }
+}
+
+/* Apple风格的图标颜色 */
+.icon-sketch {
+    vertical-align: middle;
+    margin-right: 0.25rem;
+}
+
+svg.icon-sketch {
+    display: inline-block;
+    vertical-align: middle;
+}
+
+/* Apple风格的链接 */
+a {
+    color: #2997ff;
+    text-decoration: none;
+    transition: color 0.3s;
+}
+
+a:hover {
+    color: #5ac8fa;
+    text-decoration: none;
+}
+
+/* Apple风格的代码 */
+code {
+    background-color: rgba(255, 255, 255, 0.06);
+    padding: 0.125rem 0.375rem;
+    border-radius: 6px;
+    font-family: "SF Mono", "Fira Code", "Fira Mono", "Roboto Mono", "Courier New", monospace;
+    font-size: 0.875em;
+    color: #f5f5f7;
+}
+
+/* Apple风格的按钮禁用状态 */
+button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* Apple风格的表单布局 */
+.form-inline {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-end;
+}
+
+.form-inline .form-group {
+    flex: 1;
+    margin-bottom: 0;
+}
+
+/* Apple风格的滚动条 */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Apple风格的选中文本 */
+::selection {
+    background-color: rgba(41, 151, 255, 0.3);
+    color: #f5f5f7;
+}
+
+/* Apple风格的渐变文字 */
+.gradient-text {
+    background: linear-gradient(90deg, #2997ff, #5ac8fa, #ff3b30);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}

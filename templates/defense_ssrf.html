@@ -1,0 +1,283 @@
+{% extends "base.html" %}
+
+{% block title %}SSRF防御方法{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h1>🌐 SSRF服务器端请求伪造防御方法</h1>
+
+    <h2>1. URL白名单验证</h2>
+    <p>只允许访问预定义的可信域名，拒绝所有内网地址：</p>
+
+    <div class="code-block">
+        <pre>
+from urllib.parse import urlparse
+import ipaddress
+
+# 允许的域名白名单
+ALLOWED_DOMAINS = ['api.example.com', 'cdn.example.com']
+
+# 禁止的内网IP段
+BLOCKED_NETWORKS = [
+    ipaddress.ip_network('127.0.0.0/8'),
+    ipaddress.ip_network('10.0.0.0/8'),
+    ipaddress.ip_network('172.16.0.0/12'),
+    ipaddress.ip_network('192.168.0.0/16'),
+    ipaddress.ip_network('169.254.0.0/16'),
+]
+
+def is_safe_url(url):
+    """验证URL是否安全"""
+    try:
+        parsed = urlparse(url)
+
+        # 1. 只允许http/https协议
+        if parsed.scheme not in ('http', 'https'):
+            return False, "不允许的协议"
+
+        # 2. 检查域名白名单
+        if parsed.hostname not in ALLOWED_DOMAINS:
+            return False, f"域名 {parsed.hostname} 不在白名单中"
+
+        # 3. 解析域名IP，检查是否为内网地址
+        import socket
+        ip = socket.gethostbyname(parsed.hostname)
+        ip_obj = ipaddress.ip_address(ip)
+
+        for network in BLOCKED_NETWORKS:
+            if ip_obj in network:
+                return False, f"禁止访问内网地址: {ip}"
+
+        return True, "URL安全"
+
+    except Exception as e:
+        return False, f"URL解析错误: {str(e)}"
+
+# 使用示例
+@app.route('/fetch')
+def fetch_url():
+    url = request.args.get('url')
+
+    is_safe, message = is_safe_url(url)
+    if not is_safe:
+        return f"Error: {message}", 403
+
+    # 安全地发起请求
+    response = requests.get(url, timeout=5)
+    return response.text
+        </pre>
+    </div>
+
+    <h2>2. 协议限制</h2>
+    <p>只允许http和https协议，禁止file://、dict://、gopher://等危险协议：</p>
+
+    <div class="code-block">
+        <pre>
+from urllib.parse import urlparse
+
+ALLOWED_SCHEMES = ['http', 'https']
+
+def validate_scheme(url):
+    """验证URL协议"""
+    parsed = urlparse(url)
+
+    if parsed.scheme not in ALLOWED_SCHEMES:
+        raise ValueError(f"不允许的协议: {parsed.scheme}")
+
+    return True
+
+# 需要阻止的协议
+# file://     - 读取本地文件
+# dict://     - 执行字典协议命令
+# gopher://   - 可用于攻击多种服务
+# ftp://      - FTP协议
+# tftp://     - TFTP协议
+# ldap://     - LDAP协议
+        </pre>
+    </div>
+
+    <h2>3. DNS重绑定防护</h2>
+    <p>防止攻击者通过DNS重绑定绕过IP检查：</p>
+
+    <div class="code-block">
+        <pre>
+import socket
+import ipaddress
+
+def ssrf_safe_request(url):
+    """安全的SSRF请求，防止DNS重绑定"""
+    parsed = urlparse(url)
+    hostname = parsed.hostname
+
+    # 1. 第一次DNS解析
+    ip1 = socket.gethostbyname(hostname)
+
+    # 2. 验证第一次解析结果
+    if not is_safe_ip(ip1):
+        raise ValueError(f"不安全的IP: {ip1}")
+
+    # 3. 发起请求时，使用IP而非域名
+    # 这样即使DNS在两次解析之间改变，也使用已验证的IP
+    safe_url = url.replace(hostname, ip1)
+
+    # 4. 第二次DNS解析（请求时）
+    ip2 = socket.gethostbyname(hostname)
+
+    # 5. 比较两次解析结果
+    if ip1 != ip2:
+        raise ValueError("检测到DNS重绑定攻击")
+
+    # 6. 发起请求
+    response = requests.get(safe_url, timeout=5)
+    return response.text
+
+def is_safe_ip(ip_str):
+    """检查IP是否为安全的外网地址"""
+    try:
+        ip = ipaddress.ip_address(ip_str)
+
+        # 检查是否为内网地址
+        if ip.is_private:
+            return False
+        if ip.is_loopback:
+            return False
+        if ip.is_link_local:
+            return False
+        if ip.is_reserved:
+            return False
+
+        return True
+    except ValueError:
+        return False
+        </pre>
+    </div>
+
+    <h2>4. 请求限制</h2>
+    <p>限制请求的超时时间和响应大小：</p>
+
+    <div class="code-block">
+        <pre>
+import requests
+from requests.adapters import HTTPAdapter
+
+def safe_fetch(url, timeout=5, max_size=1024*1024):
+    """安全的URL获取函数"""
+    # 1. 设置超时
+    session = requests.Session()
+    session.mount('http://', HTTPAdapter(max_retries=1))
+    session.mount('https://', HTTPAdapter(max_retries=1))
+
+    # 2. 发起请求，设置超时
+    response = session.get(
+        url,
+        timeout=timeout,  # 连接超时和读取超时
+        allow_redirects=False,  # 禁止重定向
+        stream=True  # 流式下载
+    )
+
+    # 3. 限制响应大小
+    content = b''
+    for chunk in response.iter_content(chunk_size=8192):
+        content += chunk
+        if len(content) > max_size:
+            raise ValueError("响应内容过大")
+
+    return content.decode('utf-8', errors='ignore')
+
+# 超时设置说明
+# timeout=5 表示：
+#   - 连接超时: 5秒
+#   - 读取超时: 5秒
+# 如果需要分别设置：
+# timeout=(3, 5)  # 连接超时3秒，读取超时5秒
+        </pre>
+    </div>
+
+    <h2>5. 使用代理</h2>
+    <p>通过代理服务器发起请求，隔离内网：</p>
+
+    <div class="code-block">
+        <pre>
+import requests
+
+# 配置代理
+PROXY = {
+    'http': 'http://proxy.example.com:8080',
+    'https': 'http://proxy.example.com:8080'
+}
+
+def fetch_via_proxy(url):
+    """通过代理发起请求"""
+    response = requests.get(
+        url,
+        proxies=PROXY,
+        timeout=5
+    )
+    return response.text
+
+# 代理服务器可以：
+# 1. 过滤内网请求
+# 2. 记录所有请求日志
+# 3. 实施访问控制策略
+# 4. 隐藏真实服务器IP
+        </pre>
+    </div>
+
+    <h2>6. 最佳实践总结</h2>
+    <div class="result-box">
+        <pre>
+✅ 使用URL白名单，只允许访问可信域名
+✅ 限制协议，只允许http/https
+✅ 验证目标IP，阻止内网地址
+✅ 防止DNS重绑定攻击
+✅ 设置合理的超时时间
+✅ 限制响应大小
+✅ 禁用不必要的URL获取功能
+✅ 使用代理隔离内网
+✅ 记录所有URL访问日志
+✅ 定期更新白名单和安全策略
+✅ 使用WAF防护SSRF攻击
+✅ 进行安全代码审查
+        </pre>
+    </div>
+
+    <h2>7. Python安全库推荐</h2>
+    <div class="code-block">
+        <pre>
+# 1. 使用validators验证URL
+import validators
+
+def validate_url(url):
+    if not validators.url(url):
+        raise ValueError("无效的URL格式")
+    return True
+
+# 2. 使用ssrf_filter库
+# pip install ssrf-filter
+from ssrf_filter import ssrf_filter
+
+def safe_request(url):
+    with ssrf_filter(url) as filtered_url:
+        response = requests.get(filtered_url)
+        return response.text
+
+# 3. 使用urllib3的安全特性
+import urllib3
+
+http = urllib3.PoolManager(
+    timeout=urllib3.Timeout(connect=5.0, read=5.0),
+    retries=urllib3.Retry(total=1)
+)
+
+def safe_fetch(url):
+    response = http.request('GET', url)
+    return response.data.decode('utf-8')
+        </pre>
+    </div>
+</div>
+
+<div style="margin-top: 2rem;">
+    <a href="/ssrf" class="btn btn-primary">返回SSRF演示</a>
+    <a href="/defense" class="btn btn-info" style="margin-left: 1rem;">返回防御方法</a>
+</div>
+{% endblock %}

