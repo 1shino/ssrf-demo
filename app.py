@@ -115,7 +115,7 @@ def check_password():
         return  # 没设置密码则跳过
 
     # 不需要验证的路径
-    skip_paths = ['/login', '/static/', '/ssrf/fetch']
+    skip_paths = ['/login', '/static/', '/ssrf/fetch', '/debug/']
     for path in skip_paths:
         if request.path.startswith(path):
             return
@@ -400,6 +400,38 @@ def ssrf_fetch():
             'url': url,
             'error': f'错误: {str(e)}'
         })
+
+
+# ==================== 诊断：内网服务状态 ====================
+
+@app.route('/debug/services')
+def debug_services():
+    """探测各真实内网服务是否在监听（用于排查 Railway 部署）"""
+    import socket
+    specs = [
+        ('redis-http', 16379),
+        ('mysql-http', 13306),
+        ('admin-http', 18080),
+        ('es-http', 19200),
+        ('redis-resp(dict/gopher)', 6379),
+    ]
+    services = {}
+    for name, port in specs:
+        s = socket.socket()
+        s.settimeout(1.0)
+        up = (s.connect_ex(('127.0.0.1', port)) == 0)
+        try:
+            s.close()
+        except OSError:
+            pass
+        services[name] = {'port': port, 'host': '127.0.0.1', 'listening': up}
+
+    auto = os.environ.get('AUTO_START_INTERNAL_SERVICES', 'true')
+    return json_response({
+        'auto_start_env': auto,
+        'services': services,
+        'all_up': all(v['listening'] for v in services.values()),
+    })
 
 
 # ==================== 防御方法展示 ====================
