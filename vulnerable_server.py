@@ -724,6 +724,10 @@ class RedisRespHandler(socketserver.StreamRequestHandler):
                 return _resp_bulk(info), False
             if cmd == 'GET':
                 key = rest[0] if rest else ''
+                # 演示便利：被 FLUSHALL/RCE 清空后，访问种子键时自动恢复种子数据，
+                # 保证"GET 泄露密码"演示始终可用。RCE 链不含 GET，不影响其写文件。
+                if key not in REDIS_TCP_STORE and key in REDIS_SEED:
+                    REDIS_TCP_STORE.update(REDIS_SEED)
                 val = REDIS_TCP_STORE.get(key)
                 return (_resp_bulk(val) if val is not None else b'$-1\r\n'), False
             if cmd == 'SET':
