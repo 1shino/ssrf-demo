@@ -224,7 +224,6 @@ SAVE                                      # 触发 BGSAVE/SAVE，把数据集写
 
         <div class="attack-scenarios">
             <h3><svg class="icon-sketch" viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="12" r="10" fill="none" stroke="#f5f5f7" stroke-width="1.5"/><circle cx="12" cy="12" r="6" fill="none" stroke="#f5f5f7" stroke-width="1.5"/><circle cx="12" cy="12" r="2" fill="#34c759"/></svg> 真实内网服务攻击（关闭防御模式后生效）</h3>
-            <p style="color: var(--color-muted); font-size: 13px;">以下为 <strong>真实运行</strong> 的内网服务（独立端口、真实数据）。关闭右上"防御模式"后，SSRF 会对其发起真实 HTTP 请求并拿到真实响应。<br>Elasticsearch(端口{{ es_port }}) 为 <strong>Docker 真服务</strong>（需先 <code>docker compose up -d</code>），未启动自动回退仿真；管理后台(8800) 返回真实主机/环境/文件信息。Redis 真实攻击见下方 dict/gopher 区（HTTP 包装接口已移除）。</p>
             <div class="scenario-grid">
                 <div class="scenario-card" onclick="setUrl('http://127.0.0.1:8800/')">
                     <h4><svg class="icon-sketch" viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="10" fill="none" stroke="#cf222e" stroke-width="1.5"/><line x1="12" y1="8" x2="12" y2="12" stroke="#cf222e" stroke-width="1.5" stroke-linecap="round"/><line x1="12" y1="16" x2="12.01" y2="16" stroke="#cf222e" stroke-width="2" stroke-linecap="round"/></svg> 内网管理后台</h4>
@@ -276,7 +275,6 @@ SAVE                                      # 触发 BGSAVE/SAVE，把数据集写
 
         <div class="attack-scenarios">
             <h3><svg class="icon-sketch" viewBox="0 0 24 24" width="20" height="20"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" fill="none" stroke="#f5f5f7" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> 协议级 SSRF（dict:// / gopher:// 真实打 RESP Redis 6379）</h3>
-            <p style="color: var(--color-muted); font-size: 13px;">下方对接 <strong>真实 RESP 协议 Redis TCP 服务(6379)</strong>。<code>dict://</code> 只能发简单命令（冒号→空格，无法处理含空格/冒号的值）；<code>gopher://</code> 逐字节发送，可构造完整 RESP 攻击链，实现 <strong>SSRF→Redis 任意文件写(RCE)</strong>。需先关闭防御模式。</p>
             <div class="scenario-grid">
                 <div class="scenario-card" onclick="setUrl('dict://127.0.0.1:6379/get:foo')">
                     <h4>dict GET</h4>
