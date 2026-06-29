@@ -8,8 +8,8 @@
 服务列表：
   Redis (KV 存储)       http://127.0.0.1:16379   真实内存 KV + JSON 文件持久化
   MySQL (SQL 引擎)      http://127.0.0.1:13306   真实 SQLite SQL 查询
-  内网管理后台          http://127.0.0.1:18080   真实系统信息 / 真实文件 / 真实环境变量
-  Elasticsearch (搜索)  http://127.0.0.1:19200   真实全文检索
+  内网管理后台          http://127.0.0.1:8080   真实系统信息 / 真实文件 / 真实环境变量
+  Elasticsearch (搜索)  http://127.0.0.1:9200   真实全文检索
 
 可单独运行：  python vulnerable_server.py
 app.py 启动时也会自动在后台线程拉起这些服务。
@@ -172,7 +172,7 @@ _mysql_init()
 
 
 # ============================================================================
-# 真实内网管理后台 - 端口 18080
+# 真实内网管理后台 - 端口 8080
 # 真实读取系统信息、真实文件、真实环境变量、真实目录扫描
 # ============================================================================
 
@@ -296,7 +296,7 @@ def admin_documents():
 
 
 # ============================================================================
-# 真实 Elasticsearch 服务（检索） - 端口 19200
+# 真实 Elasticsearch 服务（检索） - 端口 9200
 # 对真实文档建立真实内存倒排，返回真实命中
 # ============================================================================
 
@@ -664,12 +664,13 @@ def _probe_redis():
 
 
 def _probe_es():
-    """真实探测：HTTP GET / ，返回 200 且含 cluster_name 即真 ES"""
+    """真实探测：HTTP GET / ，返回 200 且含 cluster_name 且非 emulated 才算真 ES。
+    避免把仿真 ES(回退时也占 9200) 误判为真。"""
     import urllib.request
     try:
         r = urllib.request.urlopen(f'http://{ES_HOST}:{ES_PORT}/', timeout=2)
         body = r.read().decode('utf-8', 'ignore')
-        return r.status == 200 and 'cluster_name' in body
+        return r.status == 200 and 'cluster_name' in body and 'emulated' not in body
     except Exception:
         return False
 
@@ -776,8 +777,8 @@ def service_status():
     return {
         'redis': {'mode': 'real' if REAL_REDIS_UP else 'emulated', 'port': REDIS_PORT},
         'es': {'mode': 'real' if REAL_ES_UP else 'emulated',
-               'port': ES_PORT if REAL_ES_UP else 19200},
-        'admin': {'mode': 'real-system', 'port': 18080},
+               'port': ES_PORT if REAL_ES_UP else 9200},
+        'admin': {'mode': 'real-system', 'port': 8080},
     }
 
 
@@ -789,8 +790,8 @@ _started = False
 _start_lock = threading.Lock()
 
 SERVICE_SPECS = [
-    ('admin', admin_app, 18080),
-    ('es', es_app, 19200),
+    ('admin', admin_app, 8080),
+    ('es', es_app, 9200),
 ]
 
 

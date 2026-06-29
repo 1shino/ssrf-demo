@@ -194,7 +194,7 @@ def index():
 @app.route('/ssrf')
 def ssrf_demo():
     """SSRF（服务器端请求伪造）演示页面"""
-    es_port = 19200
+    es_port = 9200
     try:
         import vulnerable_server
         es_port = vulnerable_server.service_status()['es']['port']
@@ -430,9 +430,9 @@ def debug_services():
         import vulnerable_server as vs
         es_port = vs.service_status()['es']['port']
     except Exception:
-        es_port = 19200
+        es_port = 9200
     specs = [
-        ('admin-http', 18080),
+        ('admin-http', 8080),
         ('es-http', es_port),
         ('redis-resp(dict/gopher)', 6379),
     ]
