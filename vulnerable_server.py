@@ -8,7 +8,7 @@
 服务列表：
   Redis (KV 存储)       http://127.0.0.1:16379   真实内存 KV + JSON 文件持久化
   MySQL (SQL 引擎)      http://127.0.0.1:13306   真实 SQLite SQL 查询
-  内网管理后台          http://127.0.0.1:8080   真实系统信息 / 真实文件 / 真实环境变量
+  内网管理后台          http://127.0.0.1:8800   真实系统信息 / 真实文件 / 真实环境变量
   Elasticsearch (搜索)  http://127.0.0.1:9200   真实全文检索
 
 可单独运行：  python vulnerable_server.py
@@ -172,7 +172,7 @@ _mysql_init()
 
 
 # ============================================================================
-# 真实内网管理后台 - 端口 8080
+# 真实内网管理后台 - 端口 8800
 # 真实读取系统信息、真实文件、真实环境变量、真实目录扫描
 # ============================================================================
 
@@ -778,7 +778,7 @@ def service_status():
         'redis': {'mode': 'real' if REAL_REDIS_UP else 'emulated', 'port': REDIS_PORT},
         'es': {'mode': 'real' if REAL_ES_UP else 'emulated',
                'port': ES_PORT if REAL_ES_UP else 9200},
-        'admin': {'mode': 'real-system', 'port': 8080},
+        'admin': {'mode': 'real-system', 'port': 8800},
     }
 
 
@@ -790,7 +790,7 @@ _started = False
 _start_lock = threading.Lock()
 
 SERVICE_SPECS = [
-    ('admin', admin_app, 8080),
+    ('admin', admin_app, 8800),
     ('es', es_app, 9200),
 ]
 

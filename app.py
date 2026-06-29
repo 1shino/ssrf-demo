@@ -428,11 +428,14 @@ def debug_services():
     import socket
     try:
         import vulnerable_server as vs
-        es_port = vs.service_status()['es']['port']
+        st = vs.service_status()
+        es_port = st['es']['port']
+        admin_port = st['admin']['port']
     except Exception:
         es_port = 9200
+        admin_port = 8800
     specs = [
-        ('admin-http', 8080),
+        ('admin-http', admin_port),
         ('es-http', es_port),
         ('redis-resp(dict/gopher)', 6379),
     ]
