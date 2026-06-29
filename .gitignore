@@ -41,9 +41,13 @@ ENV/
 # Database
 *.db
 *.sqlite3
+*.sqlite
 
 # Uploads
 uploads/
+
+# 真实内网服务运行时数据（KV持久化/SQLite/配置）
+internal_data/
 
 # Logs
 *.log

@@ -13,6 +13,23 @@ import time
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', os.urandom(24).hex())
 
+# ==================== 自动拉起真实内网服务 ====================
+# 本平台依赖真实运行的内网服务（独立端口/真实数据）作为 SSRF 攻击目标。
+# 启动方式：
+#   - 本地 `python app.py`：在 __main__ 中调用（debug 下仅在 reloader 子进程起，避免端口冲突）
+#   - 生产 gunicorn：由 gunicorn_conf.py 的 post_fork 钩子调用（fork 之后起线程，才能存活）
+#   - 可设 AUTO_START_INTERNAL_SERVICES=false 关闭
+def start_internal_services():
+    """幂等地拉起真实内网服务（Redis/MySQL/Admin/ES + RESP Redis 6379）"""
+    if os.environ.get('AUTO_START_INTERNAL_SERVICES', 'true').lower() != 'true':
+        return
+    try:
+        import vulnerable_server
+        vulnerable_server.start_all_services()
+    except Exception as e:  # 启动失败不应阻断主应用
+        print(f'[!] 内网服务启动失败: {e}')
+
+
 def json_response(data, status=200):
     """返回支持中文的JSON响应"""
     from flask import Response
@@ -22,6 +39,34 @@ def json_response(data, status=200):
         status=status,
         content_type='application/json; charset=utf-8'
     )
+
+
+def _raw_tcp(host, port, payload, timeout=5):
+    """真实裸 TCP：连接 host:port，发送 payload 字节，读取回包。
+    用于 dict:// 与 gopher:// 协议真实打靶（如 RESP Redis）。"""
+    import socket
+    s = socket.create_connection((host, int(port)), timeout=timeout)
+    s.settimeout(timeout)
+    try:
+        if payload:
+            s.sendall(payload)
+        chunks = []
+        total = 0
+        try:
+            while total < 5000:
+                data = s.recv(4096)
+                if not data:
+                    break
+                chunks.append(data)
+                total += len(data)
+        except socket.timeout:
+            pass  # 读到超时即认为对端回包结束
+        return b''.join(chunks)
+    finally:
+        try:
+            s.close()
+        except OSError:
+            pass
 
 # 访问密码（在Railway环境变量中设置 ACCESS_PASSWORD）
 ACCESS_PASSWORD = os.environ.get('ACCESS_PASSWORD', '')
@@ -70,7 +115,7 @@ def check_password():
         return  # 没设置密码则跳过
 
     # 不需要验证的路径
-    skip_paths = ['/login', '/static/', '/internal/', '/ssrf/fetch']
+    skip_paths = ['/login', '/static/', '/ssrf/fetch']
     for path in skip_paths:
         if request.path.startswith(path):
             return
@@ -141,7 +186,7 @@ def ssrf_demo():
 
 @app.route('/ssrf/fetch')
 def ssrf_fetch():
-    """SSRF漏洞API - 支持防御模式演示"""
+    """SSRF漏洞API - 对目标发起真实HTTP请求（防御模式可拦截）"""
     url = request.args.get('url', '')
     defense_mode = request.args.get('defense', 'true').lower() == 'true'
 
@@ -151,6 +196,7 @@ def ssrf_fetch():
     try:
         import urllib.request
         import urllib.error
+        import urllib.parse
         from urllib.parse import urlparse
 
         parsed = urlparse(url)
@@ -213,7 +259,7 @@ def ssrf_fetch():
 
         # ===== 正常请求处理 =====
 
-        # 检测是否为file://协议
+        # 检测是否为file://协议 - 真实读取服务器本地文件
         if parsed.scheme == 'file':
             file_path = parsed.path
             # Windows路径兼容
@@ -241,24 +287,82 @@ def ssrf_fetch():
                     'error': f'权限不足: {file_path}'
                 })
 
-        # 检测是否为本机请求（SSRF攻击目标）
-        if parsed.hostname in ('127.0.0.1', 'localhost'):
-            path = parsed.path or '/'
-            with app.test_client() as client:
-                resp = client.get(path)
-                content = resp.get_data(as_text=True)
+        # ===== dict:// 协议：真实裸 TCP（攻击 RESP Redis 等） =====
+        # 形如 dict://host:port/cmd:arg1:arg2  →  发送 "cmd arg1 arg2\r\nquit\r\n"
+        if parsed.scheme == 'dict':
+            host = parsed.hostname or '127.0.0.1'
+            port = parsed.port or 2628
+            path = parsed.path.lstrip('/')
+            path = urllib.parse.unquote(path)
+            args = path.split(':') if path else []
+            cmdline = ' '.join(args)
+            payload = (cmdline + '\r\n' + 'quit\r\n').encode('utf-8')
+            try:
+                raw = _raw_tcp(host, port, payload)
+                content = raw.decode('utf-8', errors='ignore')
                 if len(content) > 5000:
                     content = content[:5000] + '\n... (内容已截断)'
                 return json_response({
                     'success': True,
                     'url': url,
-                    'status': resp.status_code,
+                    'status': 200,
+                    'protocol': 'dict',
+                    'sent': cmdline,
                     'content': content
                 })
+            except Exception as e:
+                return json_response({
+                    'success': False,
+                    'url': url,
+                    'error': f'dict 请求失败: {str(e)}'
+                })
 
-        # 外部URL请求
-        response = urllib.request.urlopen(url, timeout=5)
-        content = response.read().decode('utf-8', errors='ignore')
+        # ===== gopher:// 协议：真实裸 TCP（逐字节发送，攻击 RESP Redis 等） =====
+        # 形如 gopher://host:port/_<payload>  →  跳过类型字符，URL 解码后逐字节发送
+        if parsed.scheme == 'gopher':
+            host = parsed.hostname or '127.0.0.1'
+            port = parsed.port or 70
+            path = parsed.path
+            if path.startswith('/'):
+                path = path[1:]
+            if path:  # 跳过 gopher 类型字符（如 _）
+                path = path[1:]
+            payload = urllib.parse.unquote_to_bytes(path)
+            try:
+                raw = _raw_tcp(host, port, payload)
+                content = raw.decode('utf-8', errors='ignore')
+                if len(content) > 5000:
+                    content = content[:5000] + '\n... (内容已截断)'
+                return json_response({
+                    'success': True,
+                    'url': url,
+                    'status': 200,
+                    'protocol': 'gopher',
+                    'sent_bytes': len(payload),
+                    'content': content
+                })
+            except Exception as e:
+                return json_response({
+                    'success': False,
+                    'url': url,
+                    'error': f'gopher 请求失败: {str(e)}'
+                })
+
+        # ===== 真实HTTP请求：对目标URL（含本机真实内网服务端口）发起真实请求 =====
+        # 对含空格/中文的 path 与 query 进行安全编码，避免 urllib 抛控制字符错误
+        safe_url = urllib.parse.urlunparse((
+            parsed.scheme,
+            parsed.netloc,
+            urllib.parse.quote(parsed.path or '/', safe='/'),
+            parsed.params,
+            urllib.parse.quote(parsed.query, safe='=&+%'),
+            parsed.fragment,
+        )) if parsed.scheme in ('http', 'https') else url
+
+        req = urllib.request.Request(safe_url, headers={'User-Agent': 'AttackDemo-SSRF/1.0'})
+        response = urllib.request.urlopen(req, timeout=5)
+        raw = response.read()
+        content = raw.decode('utf-8', errors='ignore')
 
         # 限制返回内容大小
         if len(content) > 5000:
@@ -269,6 +373,20 @@ def ssrf_fetch():
             'url': url,
             'status': response.status,
             'content': content
+        })
+    except urllib.error.HTTPError as e:
+        # 真实HTTP错误（如404/500），回显响应体用于分析
+        body = ''
+        try:
+            body = e.read().decode('utf-8', errors='ignore')[:2000]
+        except Exception:
+            pass
+        return json_response({
+            'success': True,
+            'url': url,
+            'status': e.code,
+            'content': body,
+            'error': f'HTTP {e.code} {e.reason}'
         })
     except urllib.error.URLError as e:
         return json_response({
@@ -283,150 +401,6 @@ def ssrf_fetch():
             'error': f'错误: {str(e)}'
         })
 
-# ==================== 模拟内网服务（SSRF攻击目标） ====================
-
-@app.route('/internal/redis')
-def mock_redis():
-    """模拟Redis服务"""
-    return f"""$ redis_version:6.2.6
-$ connected_clients:1
-$ used_memory:1.2M
-$ redis_mode:standalone
-$ os:Linux 64 bit
-$ tcp_port:6379
-$ uptime_in_seconds:3600
-$ keyspace_hits:100
-$ keyspace_misses:10""", 200, {'Content-Type': 'text/plain'}
-
-@app.route('/internal/redis/get/<key>')
-def mock_redis_get(key):
-    """模拟Redis GET命令"""
-    keys = {
-        'user:session': 'abc123xyz',
-        'admin:password': 'super_secret_pass',
-        'config:debug': 'true'
-    }
-    if key in keys:
-        return f"${len(keys[key])}\r\n{keys[key]}", 200, {'Content-Type': 'text/plain'}
-    return "$-1", 200, {'Content-Type': 'text/plain'}
-
-@app.route('/internal/mysql')
-def mock_mysql():
-    """模拟MySQL服务"""
-    return """5.7.34-log
-Protocol version: 10
-Connection: 127.0.0.1 via TCP/IP
-Server characterset: utf8mb4
-Db characterset: utf8mb4
-Client characterset: utf8mb4
-Conn. characterset: utf8mb4""", 200, {'Content-Type': 'text/plain'}
-
-@app.route('/internal/mysql/status')
-def mock_mysql_status():
-    """模拟MySQL状态"""
-    return jsonify({
-        'version': '5.7.34',
-        'uptime': 86400,
-        'connections': 15,
-        'queries': 12345,
-        'databases': ['information_schema', 'mysql', 'test_db', 'users_db']
-    })
-
-@app.route('/internal/admin')
-def mock_admin():
-    """模拟内网管理后台"""
-    return """<!DOCTYPE html>
-<html>
-<head><title>内部管理系统</title></head>
-<body>
-<h1>内部管理系统 - 员工门户</h1>
-<p>欢迎访问内部管理系统</p>
-<ul>
-    <li><a href="/internal/admin/api/users">用户列表</a></li>
-    <li><a href="/internal/admin/api/config">系统配置</a></li>
-    <li><a href="/internal/admin/api/server">服务器信息</a></li>
-    <li><a href="/internal/admin/api/documents">内部文档</a></li>
-</ul>
-<p style="color: red;">注意：此系统仅限内网访问</p>
-</body>
-</html>"""
-
-@app.route('/internal/admin/api/users')
-def mock_admin_users():
-    """获取用户列表（敏感信息泄露）"""
-    return json_response({
-        'status': 'success',
-        'data': [
-            {'id': 1, 'username': 'admin', 'password': 'admin123', 'email': 'admin@company.com', 'role': 'admin'},
-            {'id': 2, 'username': 'john', 'password': 'john456', 'email': 'john@company.com', 'role': 'user'},
-            {'id': 3, 'username': 'jane', 'password': 'jane789', 'email': 'jane@company.com', 'role': 'user'}
-        ],
-        'message': '注意：密码为明文存储（模拟漏洞）'
-    })
-
-@app.route('/internal/admin/api/config')
-def mock_admin_config():
-    """获取系统配置（敏感信息泄露）"""
-    return json_response({
-        'status': 'success',
-        'data': {
-            'database_host': '192.168.1.100',
-            'database_password': 'db_password_123',
-            'api_key': 'sk-1234567890abcdef',
-            'secret_token': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9'
-        },
-        'warning': '这些信息不应该对外暴露'
-    })
-
-@app.route('/internal/admin/api/server')
-def mock_admin_server():
-    """获取服务器信息"""
-    return json_response({
-        'status': 'success',
-        'data': {
-            'internal_ip': '192.168.1.50',
-            'os': 'Ubuntu 20.04',
-            'kernel': '5.4.0-42-generic',
-            'cpu': '4 cores',
-            'memory': '16GB'
-        }
-    })
-
-@app.route('/internal/admin/api/documents')
-def mock_admin_documents():
-    """获取内部文档列表"""
-    return json_response({
-        'status': 'success',
-        'documents': [
-            {'id': 1, 'title': '员工手册', 'path': '/docs/handbook.pdf'},
-            {'id': 2, 'title': '薪资表', 'path': '/docs/salary_2024.xlsx'},
-            {'id': 3, 'title': '网络拓扑图', 'path': '/docs/network_topology.png'},
-            {'id': 4, 'title': '数据库备份', 'path': '/backup/db_20240101.sql'}
-        ]
-    })
-
-@app.route('/internal/elasticsearch')
-def mock_es():
-    """模拟Elasticsearch服务"""
-    return jsonify({
-        'name': 'es-node-1',
-        'cluster_name': 'elasticsearch-cluster',
-        'cluster_uuid': 'abc123-def456',
-        'version': {
-            'number': '7.10.0',
-            'build_type': 'zip',
-            'lucene_version': '8.7.0'
-        },
-        'tagline': 'You Know, for Search'
-    })
-
-@app.route('/internal/elasticsearch/_cat/indices')
-def mock_es_indices():
-    """模拟Elasticsearch索引列表"""
-    return """health status index                uuid                   pri rep docs.count docs.deleted store.size pri.store.size
-green  open   users                abc123                   1   0       1000            0      1.2mb          1.2mb
-green  open   logs-2024.01.01      def456                   1   0      50000           100     45.2mb         45.2mb
-green  open   products             ghi789                   1   0        500            0    256.1kb        256.1kb""", 200, {'Content-Type': 'text/plain'}
 
 # ==================== 防御方法展示 ====================
 
@@ -447,6 +421,11 @@ if __name__ == '__main__':
     debug_mode = os.environ.get('FLASK_DEBUG', 'true').lower() == 'true'
     host = os.environ.get('FLASK_HOST', '127.0.0.1')
     port = int(os.environ.get('FLASK_PORT', 5000))
+
+    # 拉起真实内网服务。debug 模式下 reloader 会在子进程重启，
+    # 仅在子进程(WERKZEUG_RUN_MAIN=true)启动，避免父进程占端口导致子进程绑定失败。
+    if not debug_mode or os.environ.get('WERKZEUG_RUN_MAIN') == 'true':
+        start_internal_services()
 
     # 启动Flask应用
     app.run(debug=debug_mode, host=host, port=port)
