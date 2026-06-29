@@ -426,11 +426,14 @@ def ssrf_fetch():
 def debug_services():
     """探测各真实内网服务是否在监听（用于排查 Railway 部署）"""
     import socket
+    try:
+        import vulnerable_server as vs
+        es_port = vs.service_status()['es']['port']
+    except Exception:
+        es_port = 19200
     specs = [
-        ('redis-http', 16379),
-        ('mysql-http', 13306),
         ('admin-http', 18080),
-        ('es-http', 19200),
+        ('es-http', es_port),
         ('redis-resp(dict/gopher)', 6379),
     ]
     services = {}

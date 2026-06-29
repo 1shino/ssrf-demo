@@ -177,7 +177,7 @@ SAVE                                      # 触发 BGSAVE/SAVE，把数据集写
         <div class="form-group">
             <label for="targetUrl">输入目标URL：</label>
             <div style="display: flex; gap: 1rem;">
-                <input type="text" id="targetUrl" placeholder="例如: http://127.0.0.1:16379/ 或 file:///etc/passwd" style="flex: 1;">
+                <input type="text" id="targetUrl" placeholder="例如: http://127.0.0.1:9200/ 或 file:///etc/passwd" style="flex: 1;">
                 <button class="btn btn-danger" onclick="sendSSRFRequest()"><svg class="icon-sketch" viewBox="0 0 24 24" width="16" height="16"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> 发送请求</button>
             </div>
         </div>
@@ -224,38 +224,8 @@ SAVE                                      # 触发 BGSAVE/SAVE，把数据集写
 
         <div class="attack-scenarios">
             <h3><svg class="icon-sketch" viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="12" r="10" fill="none" stroke="#f5f5f7" stroke-width="1.5"/><circle cx="12" cy="12" r="6" fill="none" stroke="#f5f5f7" stroke-width="1.5"/><circle cx="12" cy="12" r="2" fill="#34c759"/></svg> 真实内网服务攻击（关闭防御模式后生效）</h3>
-            <p style="color: var(--color-muted); font-size: 13px;">以下为 <strong>真实运行</strong> 的内网服务（独立端口、真实数据）。关闭右上"防御模式"后，SSRF 会对其发起真实 HTTP 请求并拿到真实响应。<br>Redis(6379) 与 Elasticsearch(端口{{ es_port }}) 为 <strong>Docker 真服务</strong>（需先 <code>docker compose up -d</code>）；未启动则自动回退仿真，演示不中断。MySQL(13306) 为真实 SQLite SQL 引擎（SSRF 经 HTTP 打不到真 MySQL 二进制协议，故保留 HTTP SQL 接口）。</p>
+            <p style="color: var(--color-muted); font-size: 13px;">以下为 <strong>真实运行</strong> 的内网服务（独立端口、真实数据）。关闭右上"防御模式"后，SSRF 会对其发起真实 HTTP 请求并拿到真实响应。<br>Elasticsearch(端口{{ es_port }}) 为 <strong>Docker 真服务</strong>（需先 <code>docker compose up -d</code>），未启动自动回退仿真；管理后台(18080) 返回真实主机/环境/文件信息。Redis 真实攻击见下方 dict/gopher 区（HTTP 包装接口已移除）。</p>
             <div class="scenario-grid">
-                <div class="scenario-card" onclick="setUrl('http://127.0.0.1:16379/')">
-                    <h4><svg class="icon-sketch" viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="10" fill="none" stroke="#cf222e" stroke-width="1.5"/><line x1="12" y1="8" x2="12" y2="12" stroke="#cf222e" stroke-width="1.5" stroke-linecap="round"/><line x1="12" y1="16" x2="12.01" y2="16" stroke="#cf222e" stroke-width="2" stroke-linecap="round"/></svg> Redis INFO</h4>
-                    <p>真实KV服务信息（真实进程/内存）</p>
-                    <code>http://127.0.0.1:16379/</code>
-                </div>
-                <div class="scenario-card" onclick="setUrl('http://127.0.0.1:16379/get/admin:password')">
-                    <h4><svg class="icon-sketch" viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="10" fill="none" stroke="#cf222e" stroke-width="1.5"/><line x1="12" y1="8" x2="12" y2="12" stroke="#cf222e" stroke-width="1.5" stroke-linecap="round"/><line x1="12" y1="16" x2="12.01" y2="16" stroke="#cf222e" stroke-width="2" stroke-linecap="round"/></svg> Redis 取密钥</h4>
-                    <p>真实读取 admin 密码键</p>
-                    <code>http://127.0.0.1:16379/get/admin:password</code>
-                </div>
-                <div class="scenario-card" onclick="setUrl('http://127.0.0.1:16379/keys')">
-                    <h4><svg class="icon-sketch" viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="10" fill="none" stroke="#cf222e" stroke-width="1.5"/><line x1="12" y1="8" x2="12" y2="12" stroke="#cf222e" stroke-width="1.5" stroke-linecap="round"/><line x1="12" y1="16" x2="12.01" y2="16" stroke="#cf222e" stroke-width="2" stroke-linecap="round"/></svg> Redis KEYS</h4>
-                    <p>真实列出全部键</p>
-                    <code>http://127.0.0.1:16379/keys</code>
-                </div>
-                <div class="scenario-card" onclick="setUrl('http://127.0.0.1:13306/')">
-                    <h4><svg class="icon-sketch" viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="10" fill="none" stroke="#cf222e" stroke-width="1.5"/><line x1="12" y1="8" x2="12" y2="12" stroke="#cf222e" stroke-width="1.5" stroke-linecap="round"/><line x1="12" y1="16" x2="12.01" y2="16" stroke="#cf222e" stroke-width="2" stroke-linecap="round"/></svg> MySQL 信息</h4>
-                    <p>真实SQL引擎信息</p>
-                    <code>http://127.0.0.1:13306/</code>
-                </div>
-                <div class="scenario-card" onclick="setUrl('http://127.0.0.1:13306/status')">
-                    <h4><svg class="icon-sketch" viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="10" fill="none" stroke="#cf222e" stroke-width="1.5"/><line x1="12" y1="8" x2="12" y2="12" stroke="#cf222e" stroke-width="1.5" stroke-linecap="round"/><line x1="12" y1="16" x2="12.01" y2="16" stroke="#cf222e" stroke-width="2" stroke-linecap="round"/></svg> MySQL 状态</h4>
-                    <p>真实表/行数统计</p>
-                    <code>http://127.0.0.1:13306/status</code>
-                </div>
-                <div class="scenario-card" onclick="setUrl('http://127.0.0.1:13306/query?q=SELECT * FROM users')">
-                    <h4><svg class="icon-sketch" viewBox="0 0 24 24" width="16" height="16"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="7" r="4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> 真实SQL查询</h4>
-                    <p>真实执行 SELECT 泄露用户表</p>
-                    <code>http://127.0.0.1:13306/query?q=SELECT * FROM users</code>
-                </div>
                 <div class="scenario-card" onclick="setUrl('http://127.0.0.1:18080/')">
                     <h4><svg class="icon-sketch" viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="10" fill="none" stroke="#cf222e" stroke-width="1.5"/><line x1="12" y1="8" x2="12" y2="12" stroke="#cf222e" stroke-width="1.5" stroke-linecap="round"/><line x1="12" y1="16" x2="12.01" y2="16" stroke="#cf222e" stroke-width="2" stroke-linecap="round"/></svg> 内网管理后台</h4>
                     <p>访问内部管理系统</p>
@@ -356,9 +326,9 @@ SAVE                                      # 触发 BGSAVE/SAVE，把数据集写
             <div class="payload-tips">
                 <p><strong>提示：</strong></p>
                 <ul>
-                    <li><code>http://127.0.0.1:16379/</code> - 真实探测本机Redis服务</li>
-                    <li><code>http://127.0.0.1:13306/query?q=SELECT * FROM users</code> - 真实SQL查询</li>
+                    <li><code>http://127.0.0.1:9200/_cat/indices</code> - 真实探测 Elasticsearch</li>
                     <li><code>http://127.0.0.1:18080/api/env</code> - 真实读取环境变量</li>
+                    <li><code>gopher://127.0.0.1:6379/_*1%0d%0a$4%0d%0aPING%0d%0a</code> - 真打 Redis</li>
                     <li><code>file:///C:/Windows/System32/drivers/etc/hosts</code> - 读取服务器文件</li>
                     <li><code>http://192.168.x.x:端口</code> - 探测内网服务</li>
                 </ul>

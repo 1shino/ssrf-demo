@@ -85,14 +85,10 @@ def _local_ip():
 
 
 # ============================================================================
-# 真实 Redis 服务（KV 存储） - 端口 16379
+# Redis 演示种子数据
+# Redis 的真实攻击走 dict/gopher(6379 RESP)，不再提供 HTTP 包装接口(原16379已移除)
 # ============================================================================
 
-redis_app = Flask('redis_server')
-REDIS_FILE = os.path.join(DATA_DIR, 'redis.json')
-REDIS_START = time.time()
-
-# 真实初始数据；之后可通过 /set 真实修改并持久化
 REDIS_SEED = {
     'user:session': 'abc123xyz',
     'admin:password': 'super_secret_pass',
@@ -101,176 +97,12 @@ REDIS_SEED = {
     'token:jwt': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.payload.signature',
 }
 
-
-def _redis_load():
-    """从磁盘真实加载 KV"""
-    if os.path.exists(REDIS_FILE):
-        try:
-            with open(REDIS_FILE, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except (ValueError, OSError):
-            pass
-    return dict(REDIS_SEED)
-
-
-REDIS_STORE = _redis_load()
-
-
-def _redis_save():
-    """真实持久化到磁盘"""
-    try:
-        with open(REDIS_FILE, 'w', encoding='utf-8') as f:
-            json.dump(REDIS_STORE, f, ensure_ascii=False, indent=2)
-    except OSError:
-        pass
-
-
-@redis_app.route('/')
-def redis_info():
-    """Redis INFO。真 Redis 在线则返回真 redis-server INFO，否则回退内存字典"""
-    rc = _redis_client()
-    if rc:
-        try:
-            info = rc.info()
-            return json_response({
-                'redis_version': info.get('redis_version'),
-                'redis_mode': info.get('redis_mode'),
-                'os': info.get('os'),
-                'process_id': info.get('process_id'),
-                'tcp_port': info.get('tcp_port'),
-                'uptime_in_seconds': info.get('uptime_in_seconds'),
-                'connected_clients': info.get('connected_clients'),
-                'used_memory_human': info.get('used_memory_human'),
-                'db0': info.get('db0', f'keys={rc.dbsize()}'),
-                'keys': rc.keys('*'),
-                'backend': 'real redis-server',
-            })
-        except Exception as e:
-            return json_response({'error': str(e), 'backend': 'real'}, 500)
-    # 内存回退
-    used = sum(sys.getsizeof(k) + sys.getsizeof(v) for k, v in REDIS_STORE.items())
-    return json_response({
-        'redis_version': '6.2.6-emulated',
-        'redis_mode': 'standalone',
-        'os': platform.platform(),
-        'process_id': os.getpid(),
-        'tcp_port': 16379,
-        'uptime_in_seconds': int(time.time() - REDIS_START),
-        'connected_clients': 1,
-        'used_memory_human': f'{used / 1024:.2f}K',
-        'db0': f'keys={len(REDIS_STORE)},expires=0,avg_ttl=0',
-        'keys': list(REDIS_STORE.keys()),
-        'backend': 'emulated (in-memory)',
-    })
-
-
-@redis_app.route('/get/<path:key>')
-def redis_get(key):
-    """GET：真 Redis 在线则真查；被清空的种子键自动恢复。否则内存回退"""
-    rc = _redis_client()
-    if rc:
-        try:
-            val = rc.get(key)
-            if val is None and key in REDIS_SEED:
-                _seed_real_redis()  # 演示便利：恢复种子键
-                val = rc.get(key)
-            if val is None:
-                return '$-1\r\n', 200, {'Content-Type': 'text/plain'}
-            return f"${len(val)}\r\n{val}", 200, {'Content-Type': 'text/plain'}
-        except Exception as e:
-            return json_response({'error': str(e)}, 500)
-    if key not in REDIS_STORE and key in REDIS_SEED:
-        REDIS_STORE.update(REDIS_SEED)
-    val = REDIS_STORE.get(key)
-    if val is None:
-        return '$-1\r\n', 200, {'Content-Type': 'text/plain'}
-    return f"${len(val)}\r\n{val}", 200, {'Content-Type': 'text/plain'}
-
-
-@redis_app.route('/keys')
-def redis_keys():
-    """列出全部键"""
-    rc = _redis_client()
-    if rc:
-        try:
-            pattern = request.args.get('pattern', '*')
-            keys = rc.keys(pattern)
-            return json_response({'count': len(keys), 'keys': keys, 'backend': 'real'})
-        except Exception as e:
-            return json_response({'error': str(e)}, 500)
-    pattern = request.args.get('pattern', '*')
-    if pattern == '*':
-        keys = list(REDIS_STORE.keys())
-    else:
-        rx = '^' + re.escape(pattern).replace('\\*', '.*') + '$'
-        keys = [k for k in REDIS_STORE if re.match(rx, k)]
-    return json_response({'count': len(keys), 'keys': keys})
-
-
-@redis_app.route('/set')
-def redis_set():
-    """SET：真 Redis 在线则真写，否则内存+持久化"""
-    key = request.args.get('key')
-    val = request.args.get('value', '')
-    if not key:
-        return json_response({'error': 'missing key'}, 400)
-    rc = _redis_client()
-    if rc:
-        try:
-            rc.set(key, val)
-            return json_response({'result': 'OK', 'key': key, 'value': val, 'backend': 'real'})
-        except Exception as e:
-            return json_response({'error': str(e)}, 500)
-    REDIS_STORE[key] = val
-    _redis_save()
-    return json_response({'result': 'OK', 'key': key, 'value': val})
-
-
-@redis_app.route('/config/get')
-def redis_config_get():
-    """返回服务配置"""
-    rc = _redis_client()
-    if rc:
-        try:
-            cfg = rc.config_get()
-            return json_response({'backend': 'real', 'config': cfg})
-        except Exception as e:
-            return json_response({'error': str(e)}, 500)
-    return json_response({
-        'dbfilename': 'redis.json',
-        'dir': DATA_DIR,
-        'bind': '127.0.0.1',
-        'port': 16379,
-        'save': 'persisted on every SET',
-    })
-
-
-@redis_app.route('/flushdb')
-def redis_flushdb():
-    """清空"""
-    rc = _redis_client()
-    if rc:
-        try:
-            n = rc.dbsize()
-            rc.flushdb()
-            return json_response({'result': 'OK', 'cleared': n, 'backend': 'real'})
-        except Exception as e:
-            return json_response({'error': str(e)}, 500)
-    n = len(REDIS_STORE)
-    REDIS_STORE.clear()
-    _redis_save()
-    return json_response({'result': 'OK', 'cleared': n})
-
-
 # ============================================================================
-# 真实 MySQL 服务（SQLite SQL 引擎） - 端口 13306
-# 真正执行 SQL，返回真实行数据
+# SQLite 数据层（供 admin /api/users 与 ES 仿真索引使用）
+# 注：真实 MySQL 二进制协议 SSRF 打不动，故不提供 MySQL HTTP 服务(原13306已移除)
 # ============================================================================
 
-mysql_app = Flask('mysql_server')
 MYSQL_FILE = os.path.join(DATA_DIR, 'mysql.sqlite')
-MYSQL_LOCK = threading.Lock()
-MYSQL_START = time.time()
 
 
 def _mysql_conn():
@@ -337,83 +169,6 @@ def _mysql_init():
 
 
 _mysql_init()
-
-
-@mysql_app.route('/')
-def mysql_info():
-    """真实服务信息：SQLite 引擎版本、数据库文件路径均为真实值"""
-    return json_response({
-        'server': 'MySQL-emulated (engine: SQLite)',
-        'mysql_version': '5.7.34-emulated',
-        'sqlite_version': sqlite3.sqlite_version,
-        'protocol_version': 10,
-        'connection': f'{_local_ip()} via TCP/IP',
-        'characterset': 'utf8mb4',
-        'database_file': MYSQL_FILE,
-        'uptime_seconds': int(time.time() - MYSQL_START),
-    })
-
-
-@mysql_app.route('/status')
-def mysql_status():
-    """真实状态：表数量/行数来自真实 COUNT 查询"""
-    with _mysql_conn() as c:
-        tables = [r[0] for r in c.execute(
-            "SELECT name FROM sqlite_master WHERE type='table'").fetchall()]
-        counts = {t: c.execute(f'SELECT COUNT(*) FROM "{t}"').fetchone()[0] for t in tables}
-    return json_response({
-        'version': sqlite3.sqlite_version,
-        'uptime': int(time.time() - MYSQL_START),
-        'connections': 1,
-        'queries': sum(counts.values()),
-        'tables': tables,
-        'row_counts': counts,
-        'database_file': MYSQL_FILE,
-        'db_size_bytes': os.path.getsize(MYSQL_FILE) if os.path.exists(MYSQL_FILE) else 0,
-    })
-
-
-@mysql_app.route('/databases')
-def mysql_databases():
-    """真实附加数据库列表（PRAGMA database_list）"""
-    with _mysql_conn() as c:
-        rows = [dict(r) for r in c.execute('PRAGMA database_list').fetchall()]
-    return json_response({'databases': rows})
-
-
-@mysql_app.route('/tables')
-def mysql_tables():
-    """真实表列表"""
-    with _mysql_conn() as c:
-        rows = [r[0] for r in c.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name").fetchall()]
-    return json_response({'tables': rows})
-
-
-@mysql_app.route('/users')
-def mysql_users():
-    """便捷接口：真实 SELECT * FROM users"""
-    with _mysql_conn() as c:
-        rows = [dict(r) for r in c.execute('SELECT * FROM users').fetchall()]
-    return json_response({'count': len(rows), 'data': rows})
-
-
-@mysql_app.route('/query')
-def mysql_query():
-    """真实执行 SQL（仅允许 SELECT，防写入）— 真实 SQL 引擎"""
-    sql = request.args.get('q', '').strip()
-    if not sql:
-        return json_response({'error': 'missing q parameter, e.g. ?q=SELECT * FROM users'}, 400)
-    if not sql.lower().startswith('select'):
-        return json_response({'error': 'only SELECT is allowed through this endpoint'}, 400)
-    try:
-        with MYSQL_LOCK, _mysql_conn() as c:
-            cur = c.execute(sql)
-            cols = [d[0] for d in cur.description]
-            rows = [dict(zip(cols, r)) for r in cur.fetchall()]
-        return json_response({'columns': cols, 'rowcount': len(rows), 'data': rows})
-    except sqlite3.Error as e:
-        return json_response({'error': str(e), 'sql': sql}, 400)
 
 
 # ============================================================================
@@ -885,15 +640,25 @@ _real_redis_client = None
 
 
 def _probe_redis():
-    """真实探测：向 6379 发 RESP PING，收到 +PONG 即真 redis-server"""
+    """真实探测：向 6379 发 RESP INFO，返回真 redis-server 版本(非 emulated)才算真。
+    避免把我们自己的仿真 RESP 服务误判为真 Redis（二者都回 PONG）。"""
     import socket as _sock
     try:
         s = _sock.create_connection((REDIS_HOST, REDIS_PORT), timeout=1.0)
-        s.settimeout(1.0)
-        s.sendall(b'PING\r\n')
-        data = s.recv(64)
+        s.settimeout(1.5)
+        s.sendall(b'*1\r\n$4\r\nINFO\r\n')
+        data = b''
+        try:
+            while len(data) < 4000:
+                d = s.recv(4096)
+                if not d:
+                    break
+                data += d
+        except OSError:
+            pass
         s.close()
-        return b'PONG' in data
+        text = data.decode('utf-8', 'ignore')
+        return 'redis_version:' in text and 'emulated' not in text
     except OSError:
         return False
 
@@ -1012,7 +777,6 @@ def service_status():
         'redis': {'mode': 'real' if REAL_REDIS_UP else 'emulated', 'port': REDIS_PORT},
         'es': {'mode': 'real' if REAL_ES_UP else 'emulated',
                'port': ES_PORT if REAL_ES_UP else 19200},
-        'mysql': {'mode': 'emulated-sqlite', 'port': 13306},
         'admin': {'mode': 'real-system', 'port': 18080},
     }
 
@@ -1025,8 +789,6 @@ _started = False
 _start_lock = threading.Lock()
 
 SERVICE_SPECS = [
-    ('redis', redis_app, 16379),
-    ('mysql', mysql_app, 13306),
     ('admin', admin_app, 18080),
     ('es', es_app, 19200),
 ]
