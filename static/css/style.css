@@ -62,6 +62,9 @@ body {
     -moz-osx-font-smoothing: grayscale;
     font-size: 16px;
     letter-spacing: 0;
+    overflow-x: hidden;   /* 兜底：防止长 URL/字符串导致横向滚动 */
+    word-break: break-word;
+    overflow-wrap: anywhere;
 }
 
 /* ===== 导航栏 ===== */

@@ -1,0 +1,31 @@
+# 真实内网服务（SSRF 攻击目标）
+# 启动：docker compose up -d
+# 停止：docker compose down
+# 未启动时 app.py 自动回退到仿真服务，演示不会中断。
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: ssrf-demo-redis
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - ./internal_data/redis_data:/data
+    restart: unless-stopped
+    # 默认无认证、允许 CONFIG —— 真实"未授权 Redis"漏洞场景
+
+  elasticsearch:
+    # 7.x 默认 HTTP 无认证（8.x 默认 HTTPS+auth，不适合 SSRF 演示）
+    image: elasticsearch:7.17.16
+    container_name: ssrf-demo-es
+    ports:
+      - "127.0.0.1:9200:9200"
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+    mem_limit: 1500m
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    restart: unless-stopped

@@ -127,10 +127,30 @@ def _redis_save():
 
 @redis_app.route('/')
 def redis_info():
-    """真实 INFO：内存占用/进程号/运行时长均为真实值"""
+    """Redis INFO。真 Redis 在线则返回真 redis-server INFO，否则回退内存字典"""
+    rc = _redis_client()
+    if rc:
+        try:
+            info = rc.info()
+            return json_response({
+                'redis_version': info.get('redis_version'),
+                'redis_mode': info.get('redis_mode'),
+                'os': info.get('os'),
+                'process_id': info.get('process_id'),
+                'tcp_port': info.get('tcp_port'),
+                'uptime_in_seconds': info.get('uptime_in_seconds'),
+                'connected_clients': info.get('connected_clients'),
+                'used_memory_human': info.get('used_memory_human'),
+                'db0': info.get('db0', f'keys={rc.dbsize()}'),
+                'keys': rc.keys('*'),
+                'backend': 'real redis-server',
+            })
+        except Exception as e:
+            return json_response({'error': str(e), 'backend': 'real'}, 500)
+    # 内存回退
     used = sum(sys.getsizeof(k) + sys.getsizeof(v) for k, v in REDIS_STORE.items())
-    info = {
-        'redis_version': '6.2.6-emulated',          # 仿真服务版本（真实引擎为内存字典）
+    return json_response({
+        'redis_version': '6.2.6-emulated',
         'redis_mode': 'standalone',
         'os': platform.platform(),
         'process_id': os.getpid(),
@@ -140,13 +160,27 @@ def redis_info():
         'used_memory_human': f'{used / 1024:.2f}K',
         'db0': f'keys={len(REDIS_STORE)},expires=0,avg_ttl=0',
         'keys': list(REDIS_STORE.keys()),
-    }
-    return json_response(info)
+        'backend': 'emulated (in-memory)',
+    })
 
 
 @redis_app.route('/get/<path:key>')
 def redis_get(key):
-    """真实 GET：从内存字典真实取值"""
+    """GET：真 Redis 在线则真查；被清空的种子键自动恢复。否则内存回退"""
+    rc = _redis_client()
+    if rc:
+        try:
+            val = rc.get(key)
+            if val is None and key in REDIS_SEED:
+                _seed_real_redis()  # 演示便利：恢复种子键
+                val = rc.get(key)
+            if val is None:
+                return '$-1\r\n', 200, {'Content-Type': 'text/plain'}
+            return f"${len(val)}\r\n{val}", 200, {'Content-Type': 'text/plain'}
+        except Exception as e:
+            return json_response({'error': str(e)}, 500)
+    if key not in REDIS_STORE and key in REDIS_SEED:
+        REDIS_STORE.update(REDIS_SEED)
     val = REDIS_STORE.get(key)
     if val is None:
         return '$-1\r\n', 200, {'Content-Type': 'text/plain'}
@@ -155,7 +189,15 @@ def redis_get(key):
 
 @redis_app.route('/keys')
 def redis_keys():
-    """真实列出全部键"""
+    """列出全部键"""
+    rc = _redis_client()
+    if rc:
+        try:
+            pattern = request.args.get('pattern', '*')
+            keys = rc.keys(pattern)
+            return json_response({'count': len(keys), 'keys': keys, 'backend': 'real'})
+        except Exception as e:
+            return json_response({'error': str(e)}, 500)
     pattern = request.args.get('pattern', '*')
     if pattern == '*':
         keys = list(REDIS_STORE.keys())
@@ -167,11 +209,18 @@ def redis_keys():
 
 @redis_app.route('/set')
 def redis_set():
-    """真实 SET：真实写入内存并持久化（演示可被 SSRF 修改真实状态）"""
+    """SET：真 Redis 在线则真写，否则内存+持久化"""
     key = request.args.get('key')
     val = request.args.get('value', '')
     if not key:
         return json_response({'error': 'missing key'}, 400)
+    rc = _redis_client()
+    if rc:
+        try:
+            rc.set(key, val)
+            return json_response({'result': 'OK', 'key': key, 'value': val, 'backend': 'real'})
+        except Exception as e:
+            return json_response({'error': str(e)}, 500)
     REDIS_STORE[key] = val
     _redis_save()
     return json_response({'result': 'OK', 'key': key, 'value': val})
@@ -179,7 +228,14 @@ def redis_set():
 
 @redis_app.route('/config/get')
 def redis_config_get():
-    """真实返回服务配置"""
+    """返回服务配置"""
+    rc = _redis_client()
+    if rc:
+        try:
+            cfg = rc.config_get()
+            return json_response({'backend': 'real', 'config': cfg})
+        except Exception as e:
+            return json_response({'error': str(e)}, 500)
     return json_response({
         'dbfilename': 'redis.json',
         'dir': DATA_DIR,
@@ -191,7 +247,15 @@ def redis_config_get():
 
 @redis_app.route('/flushdb')
 def redis_flushdb():
-    """真实清空"""
+    """清空"""
+    rc = _redis_client()
+    if rc:
+        try:
+            n = rc.dbsize()
+            rc.flushdb()
+            return json_response({'result': 'OK', 'cleared': n, 'backend': 'real'})
+        except Exception as e:
+            return json_response({'error': str(e)}, 500)
     n = len(REDIS_STORE)
     REDIS_STORE.clear()
     _redis_save()
@@ -806,6 +870,154 @@ def start_redis_tcp():
 
 
 # ============================================================================
+# 真实服务探测与种子（Redis 6379 / Elasticsearch 9200）
+# Docker 起 → 真服务；未起 → 回退仿真（标志位驱动 wrapper 与模板端口选择）
+# ============================================================================
+
+REDIS_HOST = os.environ.get('REDIS_HOST', '127.0.0.1')
+REDIS_PORT = int(os.environ.get('REDIS_PORT', '6379'))
+ES_HOST = os.environ.get('ES_HOST', '127.0.0.1')
+ES_PORT = int(os.environ.get('ES_PORT', '9200'))
+
+REAL_REDIS_UP = False
+REAL_ES_UP = False
+_real_redis_client = None
+
+
+def _probe_redis():
+    """真实探测：向 6379 发 RESP PING，收到 +PONG 即真 redis-server"""
+    import socket as _sock
+    try:
+        s = _sock.create_connection((REDIS_HOST, REDIS_PORT), timeout=1.0)
+        s.settimeout(1.0)
+        s.sendall(b'PING\r\n')
+        data = s.recv(64)
+        s.close()
+        return b'PONG' in data
+    except OSError:
+        return False
+
+
+def _probe_es():
+    """真实探测：HTTP GET / ，返回 200 且含 cluster_name 即真 ES"""
+    import urllib.request
+    try:
+        r = urllib.request.urlopen(f'http://{ES_HOST}:{ES_PORT}/', timeout=2)
+        body = r.read().decode('utf-8', 'ignore')
+        return r.status == 200 and 'cluster_name' in body
+    except Exception:
+        return False
+
+
+def _redis_client():
+    """返回 redis-py 客户端（仅当真 Redis 在线）；否则 None（走内存回退）"""
+    global _real_redis_client
+    if not REAL_REDIS_UP:
+        return None
+    if _real_redis_client is None:
+        try:
+            import redis as redislib
+            c = redislib.Redis(host=REDIS_HOST, port=REDIS_PORT,
+                               decode_responses=True, socket_timeout=2,
+                               socket_connect_timeout=2)
+            c.ping()
+            _real_redis_client = c
+        except Exception:
+            _real_redis_client = None
+    return _real_redis_client
+
+
+def _seed_real_redis():
+    """向真 Redis 写入种子键（演示数据）"""
+    c = _redis_client()
+    if not c:
+        return False
+    try:
+        for k, v in REDIS_SEED.items():
+            c.set(k, v)
+        return True
+    except Exception:
+        return False
+
+
+def _seed_real_es():
+    """向真 Elasticsearch 建索引并索引演示文档"""
+    import urllib.request
+    base = f'http://{ES_HOST}:{ES_PORT}'
+    docs = {
+        'users': [
+            {'username': 'admin', 'password': 'admin123', 'email': 'admin@company.com', 'role': 'admin'},
+            {'username': 'john', 'password': 'john456', 'email': 'john@company.com', 'role': 'user'},
+            {'username': 'jane', 'password': 'jane789', 'email': 'jane@company.com', 'role': 'user'},
+        ],
+        'products': [
+            {'name': 'SSD 1TB', 'price': 599.0, 'stock': 120},
+            {'name': 'Mech Keyboard', 'price': 899.0, 'stock': 35},
+        ],
+        'logs': [
+            {'username': 'admin', 'ip': '192.168.1.50', 'action': 'login'},
+            {'username': 'john', 'ip': '10.0.0.12', 'action': 'download'},
+        ],
+    }
+    try:
+        for idx, rows in docs.items():
+            for doc in rows:
+                req = urllib.request.Request(
+                    f'{base}/{idx}/_doc',
+                    data=json.dumps(doc).encode('utf-8'),
+                    headers={'Content-Type': 'application/json'},
+                    method='POST')
+                urllib.request.urlopen(req, timeout=5)
+        urllib.request.urlopen(f'{base}/_refresh', timeout=5)
+        return True
+    except Exception:
+        return False
+
+
+def _real_probe_loop():
+    """后台探测真服务并种子化（ES 启动慢，重试约 60s）"""
+    global REAL_REDIS_UP, REAL_ES_UP
+    # Redis 启动快
+    for _ in range(10):
+        if _probe_redis():
+            REAL_REDIS_UP = True
+            break
+        time.sleep(0.5)
+    if REAL_REDIS_UP:
+        _seed_real_redis()
+    # ES 启动慢，重试 60 次
+    for _ in range(60):
+        if _probe_es():
+            REAL_ES_UP = True
+            break
+        time.sleep(1.0)
+    if REAL_ES_UP:
+        _seed_real_es()
+    print(f"[REAL] redis={'真(redis-server)' if REAL_REDIS_UP else '仿真回退'} "
+          f"es={'真(elasticsearch)' if REAL_ES_UP else '仿真回退'}")
+
+
+def reseed():
+    """重新种子化真 Redis/ES（供 /debug/reseed 调用，FLUSHALL 后重置演示）"""
+    ok_r = _seed_real_redis() if REAL_REDIS_UP else None
+    ok_e = _seed_real_es() if REAL_ES_UP else None
+    return {'redis': ('real' if REAL_REDIS_UP else 'emulated'),
+            'es': ('real' if REAL_ES_UP else 'emulated'),
+            'reseeded_redis': ok_r, 'reseeded_es': ok_e}
+
+
+def service_status():
+    """供 app.py / 模板查询当前真/仿真模式与端口"""
+    return {
+        'redis': {'mode': 'real' if REAL_REDIS_UP else 'emulated', 'port': REDIS_PORT},
+        'es': {'mode': 'real' if REAL_ES_UP else 'emulated',
+               'port': ES_PORT if REAL_ES_UP else 19200},
+        'mysql': {'mode': 'emulated-sqlite', 'port': 13306},
+        'admin': {'mode': 'real-system', 'port': 18080},
+    }
+
+
+# ============================================================================
 # 启动逻辑
 # ============================================================================
 
@@ -842,7 +1054,10 @@ def start_all_services():
     for name, _, port in SERVICE_SPECS:
         print(f'     - {name:<6} http://127.0.0.1:{port}')
     # 真实 RESP Redis TCP 服务（dict:// / gopher:// 打靶）
+    # 真 redis-server 在线时 6379 被占，此处 EADDRINUSE 自动跳过（透明走真 Redis）
     start_redis_tcp()
+    # 后台探测真 Redis(6379)/ES(9200) 并种子化；未起则自动回退仿真
+    threading.Thread(target=_real_probe_loop, daemon=True).start()
     return True
 
 

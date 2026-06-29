@@ -194,7 +194,13 @@ def index():
 @app.route('/ssrf')
 def ssrf_demo():
     """SSRF（服务器端请求伪造）演示页面"""
-    return render_template('ssrf.html')
+    es_port = 19200
+    try:
+        import vulnerable_server
+        es_port = vulnerable_server.service_status()['es']['port']
+    except Exception:
+        pass
+    return render_template('ssrf.html', es_port=es_port)
 
 @app.route('/ssrf/fetch')
 def ssrf_fetch():
@@ -444,6 +450,16 @@ def debug_services():
         'services': services,
         'all_up': all(v['listening'] for v in services.values()),
     })
+
+
+@app.route('/debug/reseed')
+def debug_reseed():
+    """重新种子化真 Redis/ES（FLUSHALL 后重置演示数据）"""
+    try:
+        import vulnerable_server
+        return json_response(vulnerable_server.reseed())
+    except Exception as e:
+        return json_response({'error': str(e)}, 500)
 
 
 # ==================== 防御方法展示 ====================
