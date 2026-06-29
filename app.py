@@ -15,10 +15,11 @@ app.secret_key = os.environ.get('SECRET_KEY', os.urandom(24).hex())
 
 # ==================== 自动拉起真实内网服务 ====================
 # 本平台依赖真实运行的内网服务（独立端口/真实数据）作为 SSRF 攻击目标。
-# 启动方式：
-#   - 本地 `python app.py`：在 __main__ 中调用（debug 下仅在 reloader 子进程起，避免端口冲突）
-#   - 生产 gunicorn：由 gunicorn_conf.py 的 post_fork 钩子调用（fork 之后起线程，才能存活）
-#   - 可设 AUTO_START_INTERNAL_SERVICES=false 关闭
+# 在 import 时起服务（后台守护线程，绑定 127.0.0.1 回环端口）。
+# 关键：gunicorn 无论是否 --preload，容器内总有一个长驻进程(master 或 worker)
+# 持有这些服务线程；同一容器所有进程经 127.0.0.1 回环共享端口，故 /ssrf/fetch
+# 在任意 worker 都能打到。唯一需跳过的是本地 Flask debug 的 reloader 父进程
+# （由 __name__=='__main__' + WERKZEUG_RUN_MAIN 精确识别），避免父子重复绑定。
 def start_internal_services():
     """幂等地拉起真实内网服务（Redis/MySQL/Admin/ES + RESP Redis 6379）"""
     if os.environ.get('AUTO_START_INTERNAL_SERVICES', 'true').lower() != 'true':
@@ -28,6 +29,17 @@ def start_internal_services():
         vulnerable_server.start_all_services()
     except Exception as e:  # 启动失败不应阻断主应用
         print(f'[!] 内网服务启动失败: {e}')
+
+
+# 本地 debug 的 reloader 父进程会重复执行脚本并占端口；只在"非脚本入口"或
+# "reloader 子进程(WERKZEUG_RUN_MAIN=true)"起。gunicorn 下 __name__ 为 'app'，必起。
+_is_reloader_parent = (
+    __name__ == '__main__'
+    and os.environ.get('FLASK_DEBUG', 'true').lower() == 'true'
+    and os.environ.get('WERKZEUG_RUN_MAIN') != 'true'
+)
+if not _is_reloader_parent:
+    start_internal_services()
 
 
 def json_response(data, status=200):
@@ -454,10 +466,6 @@ if __name__ == '__main__':
     host = os.environ.get('FLASK_HOST', '127.0.0.1')
     port = int(os.environ.get('FLASK_PORT', 5000))
 
-    # 拉起真实内网服务。debug 模式下 reloader 会在子进程重启，
-    # 仅在子进程(WERKZEUG_RUN_MAIN=true)启动，避免父进程占端口导致子进程绑定失败。
-    if not debug_mode or os.environ.get('WERKZEUG_RUN_MAIN') == 'true':
-        start_internal_services()
-
+    # 真实内网服务已在 import 时按 reloader 守卫启动（见文件顶部），此处无需再起。
     # 启动Flask应用
     app.run(debug=debug_mode, host=host, port=port)
